@@ -43,6 +43,10 @@ namespace ScaredyCat
             { fragmentPositions[i] = fragments[i].transform.localPosition; fragmentRotations[i] = fragments[i].transform.localRotation; }
             if (brokenRoot) brokenRoot.SetActive(false);
         }
+        void Start()
+        {
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        }
         public void ReceiveHit(HitContext hit)
         {
             if (Broken) return;
