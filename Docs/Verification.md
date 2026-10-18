@@ -1,8 +1,26 @@
 # First playable verification
 
-This is the verification baseline for the generated first playable. The authored apartment intro, owner activity trigger, and doorway NavMesh links have since changed and are not covered by this historical run.
+The lower sections record the original generated first playable and its historical prop totals. The current apartment stage checks are listed first.
+
+## Three-stage apartment validation
+
+The current apartment scene was imported and saved with Unity **6000.3.11f1** in an isolated project copy while the main Editor remained open. Scene validation found **four non-overlapping owner reward areas, five Rub targets, six kitchen dishes with saved OpenFracture pieces, and four launchable props**. The six kitchen dishes each have eight saved fragments. The apartment now has 14 `MischiefProp` objects total: four existing vases, six dishes, and four launchables.
+
+The updated **Edit Mode suite passes 11/11**. It covers one-time slap, break, Rub, and per-room owner reward identities. The updated **Play Mode suite passes 21/21**. The apartment checks cover Rub indicator removal and Marked render-layer assignment, nearby NavMesh approaches, red Smashable layers on breakables, full-resolution WorldUI versus 288-pixel world output, stronger launches for light props after a physics step, room-by-room owner rewards and doorway gaps, timer pause and stop, ordered stage playback and skipping, owner sitting state, victory UI, and restart. These are automated behavior checks; use the Game view to tune the sofa seat and lap anchor visually.
+
+A targeted Play Mode run also passed with one 100-point ledger event crossing 66, 33, and 0 at once: the first and last dialogue shots advanced line by line, the middle sequence skipped, and the ending reached the victory screen.
+
+The stage scene objects are in **Apartment Stage Content**. Open that hierarchy to edit room trigger volumes, interaction anchors, dialogue shots and lines, timer/dialogue/vignette/victory UI, mist, and the sofa ending anchors. The old generated HUD retains its existing content, while the duplicate pixel compositor on it is disabled so the authored CameraOutputCompositor drives both outputs.
 
 Validated with Unity **6000.3.11f1**, using an isolated copy of this project so the open working Editor was not interrupted.
+
+## October 2026 follow-up
+
+The apartment and Mechanics Lab scene HUD text was converted to TextMesh Pro. The apartment scene now has four serialized owner roam anchors, four paintings that become physical on paw contact, a Mark Territory screen prompt, and readable WorldUI labels. The authored timer text was moved above and within the existing `Timer` image. The owner sit and cat lap transforms remain editable under `Apartment Stage Content > Owner sitting on sofa`.
+
+The isolated Unity editor imported and saved both updated scenes without C# compile errors. This follow-up did not run the test suites or a visual Game-view pass; the earlier counts below are historical results from before these changes.
+
+The October 18 gameplay follow-up clears the bedroom panel colliders when the intro opens it, places generated NavMeshLink endpoints on sampled NavMesh positions, and assigns the owner a looping Humanoid Macarena clip with a 30% destination-pause chance. Mark Territory now requires a 1.4-second hold and has a progress bar plus green particles and a light camera bump. The stage dialogue output is assigned to the authored `Owner line` TMP object, and the cat scales to 62% at the ending by default. Edit the three stage `Cutscene Sequence` components' **Shots > Caption** fields to author custom lines; keep **Wait For Advance** on for step-by-step playback.
 
 ## Automated tests
 

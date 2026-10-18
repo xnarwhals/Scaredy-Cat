@@ -1,1 +1,1 @@
-{"name":"ScaredyCat.Runtime","rootNamespace":"ScaredyCat","references":["Unity.InputSystem","UnityEngine.UI","Unity.AI.Navigation","Unity.Splines","Unity.Mathematics"]}
+{"name":"ScaredyCat.Runtime","rootNamespace":"ScaredyCat","references":["Unity.InputSystem","UnityEngine.UI","Unity.TextMeshPro","Unity.AI.Navigation","Unity.Splines","Unity.Mathematics"]}

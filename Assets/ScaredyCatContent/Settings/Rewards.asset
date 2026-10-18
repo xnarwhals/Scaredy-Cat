@@ -16,6 +16,7 @@ MonoBehaviour:
   knockReward: 3
   breakReward: 10
   ownerReward: 12
+  markReward: 8
   knockDistance: 0.25
   knockAngle: 35
   attributionSeconds: 6

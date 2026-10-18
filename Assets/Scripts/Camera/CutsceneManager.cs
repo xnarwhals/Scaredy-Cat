@@ -23,8 +23,8 @@ namespace ScaredyCat
         float blendFov;
         bool finishing;
         bool requiresLookTarget;
-        void OnEnable() { if (input) input.SkipPressed += Skip; }
-        void OnDisable() { if (input) input.SkipPressed -= Skip; Cancel(); }
+        void OnEnable() { if (input) { input.SkipPressed += Skip; input.AdvancePressed += Advance; } }
+        void OnDisable() { if (input) { input.SkipPressed -= Skip; input.AdvancePressed -= Advance; } Cancel(); }
         public void Play(CutsceneSequence sequence)
         {
             if (!sequence || (sequence.playOnce && sequence.HasPlayed) || sequence == Active || queue.Contains(sequence)) return;
@@ -54,10 +54,16 @@ namespace ScaredyCat
             shot.Evaluate(elapsed / Mathf.Max(.01f, shot.duration), out var position, out var rotation);
             float blend = Mathf.SmoothStep(0, 1, elapsed / Mathf.Max(.001f, shot.blendIn));
             director.SetShot(Vector3.Lerp(blendPosition, position, blend), Quaternion.Slerp(blendRotation, rotation, blend), Mathf.Lerp(blendFov, shot.fieldOfView, blend));
-            if (elapsed >= shot.duration)
+            if (elapsed >= shot.duration && !shot.waitForAdvance)
             {
-                if (++shotIndex >= Active.shots.Length) Finish(SequenceResult.Completed); else BeginShot();
+                NextShot();
             }
+        }
+        void NextShot() { if (++shotIndex >= Active.shots.Length) Finish(SequenceResult.Completed); else BeginShot(); }
+        public void Advance()
+        {
+            if (Time.timeScale == 0 || !Active || Active.shots == null || shotIndex >= Active.shots.Length) return;
+            if (Active.shots[shotIndex].waitForAdvance && elapsed >= .15f) NextShot();
         }
         void BeginShot()
         {

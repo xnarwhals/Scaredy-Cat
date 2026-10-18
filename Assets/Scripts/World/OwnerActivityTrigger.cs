@@ -6,6 +6,7 @@ namespace ScaredyCat
     public sealed class OwnerActivityTrigger : MonoBehaviour
     {
         public OwnerRagdoll owner;
+        public GameFlow flow;
         bool activated;
         bool playerInside;
 
@@ -28,6 +29,8 @@ namespace ScaredyCat
 
         void TryActivate()
         {
+            if (!flow) flow = FindFirstObjectByType<GameFlow>();
+            if (flow && flow.State != GameState.Playing) return;
             if (activated || !owner || owner.State != OwnerState.Animated || !owner.brain) return;
             activated = true;
             owner.brain.BeginFreeRoam();

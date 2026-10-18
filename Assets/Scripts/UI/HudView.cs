@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 namespace ScaredyCat
 {
     public sealed class HudView : MonoBehaviour
@@ -9,7 +10,7 @@ namespace ScaredyCat
         public PawAttack attack;
         public CutsceneManager cutscenes;
         public Image agroFill, chargeFill, fade;
-        public Text caption, menuTitle, menuBody;
+        public TMP_Text caption, menuTitle, menuBody;
         public GameObject menu, reticle, chargeGroup;
         public Button resume, replay;
         public Slider sensitivity, motion;
@@ -30,7 +31,7 @@ namespace ScaredyCat
             chargeFill.fillAmount = attack.Charge;
             caption.text = cutscenes.Caption;
             bool completed = flow.State == GameState.Complete;
-            menu.SetActive(flow.Paused || completed);
+            menu.SetActive(flow.Paused || (completed && (!flow.presentation || !flow.presentation.victoryScreen)));
             if (menu.activeSelf)
             {
                 menuTitle.text = completed ? "THIS FEELS LIKE HOME." : "CAT NAP";

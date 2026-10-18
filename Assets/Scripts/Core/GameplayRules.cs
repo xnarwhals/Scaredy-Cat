@@ -32,7 +32,7 @@ namespace ScaredyCat
         { charge = Fraction(now, duration); bool valid = IsCharging; Cancel(); return valid; }
         public void Cancel() => IsCharging = false;
     }
-    public enum MischiefKind { Knock, Break, OwnerKnockdown }
+    public enum MischiefKind { Knock, Break, OwnerKnockdown, Mark }
     public readonly struct MischiefEvent
     {
         public readonly int TargetId;

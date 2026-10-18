@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.UI;
 using UnityEngine.Splines;
 
 namespace ScaredyCat
@@ -143,6 +142,9 @@ namespace ScaredyCat
         {
             if (!bedroomDoor || doorOpened) return;
             doorOpened = true;
+            // The spline opens the panel visually. The NavMeshLink only helps
+            // NavMeshAgents; the cat uses Rigidbody movement and still needs a clear collider gap.
+            SetBedroomDoorBlocking(false);
             doorAnimation = StartCoroutine(OpenDoorRoutine());
         }
 
@@ -175,7 +177,14 @@ namespace ScaredyCat
             if (doorAnimation != null) StopCoroutine(doorAnimation);
             doorAnimation = null;
             doorOpened = true;
+            SetBedroomDoorBlocking(false);
             bedroomDoor.localRotation = doorClosedRotation * Quaternion.Euler(0, doorOpenAngle, 0);
+        }
+
+        void SetBedroomDoorBlocking(bool blocked)
+        {
+            foreach (var collider in bedroomDoor.GetComponentsInChildren<Collider>(true))
+                collider.enabled = blocked;
         }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// UI render. The regular screen-space HUD stays above both outputs.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(150)]
 public sealed class PixelComposition : MonoBehaviour
 {
     [Header("Cameras")]

@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.AI;
 using UnityEngine.TestTools;
 namespace ScaredyCat.Tests
 {
@@ -97,12 +98,12 @@ namespace ScaredyCat.Tests
             var prop = Object.FindObjectsByType<MischiefProp>(FindObjectsSortMode.None).First(p => p.breakable);
             float before = flow.agro.Ledger.Value;
             prop.ReceiveHit(new HitContext(1, cat.gameObject, prop.transform.position, Vector3.up, 1, 4));
-            Assert.That(prop.Broken, Is.True); Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 10));
+            Assert.That(prop.Broken, Is.True); Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 13));
             var fragments = prop.brokenRoot.GetComponentsInChildren<Rigidbody>(); Assert.That(fragments.Length, Is.GreaterThan(1));
             Assert.That(fragments.All(f => !f.isKinematic && f.GetComponent<ImpulseAttribution>().Active), Is.True);
             prop.ReceiveHit(new HitContext(2, cat.gameObject, prop.transform.position, Vector3.up, 1, 4));
             prop.ResetProp(); prop.ReceiveHit(new HitContext(3, cat.gameObject, prop.transform.position, Vector3.up, 1, 4));
-            Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 10)); yield return null;
+            Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 13)); yield return null;
         }
         [UnityTest] public IEnumerator AmbientBreakHasNoRewardAndAttributionTransfersAcrossCollision()
         {
@@ -217,14 +218,120 @@ namespace ScaredyCat.Tests
             if (flow.Paused) flow.TogglePause();
             yield return null; flow.cutscenes.Skip(); yield return null; Assert.That(flow.State, Is.EqualTo(GameState.Playing));
             var props = Object.FindObjectsByType<MischiefProp>(FindObjectsSortMode.None);
-            Assert.That(props.Where(p => p.breakable).Count() * 10, Is.GreaterThanOrEqualTo(130));
+            Assert.That(props.Count(p => p.breakable), Is.EqualTo(10));
+            Assert.That(props.Count(p => !p.breakable), Is.EqualTo(4));
             foreach (var prop in props.Where(p => p.breakable)) prop.ReceiveHit(new HitContext(1, cat.gameObject, prop.transform.position, Vector3.up, 1, 2));
-            float until = Time.time + 8; while (flow.State != GameState.Complete && Time.time < until) yield return null;
+            float until = Time.time + 12;
+            while (flow.State != GameState.Complete && Time.time < until)
+            { if (flow.cutscenes.IsPlaying) flow.cutscenes.Skip(); yield return null; }
             Assert.That(flow.State, Is.EqualTo(GameState.Complete)); Assert.That(flow.agro.Ledger.Value, Is.Zero);
             Assert.That(flow.input.Controls.IsLocked, Is.True); Assert.That(flow.cutscenes.director.Cinematic, Is.True);
             flow.Restart(); yield return null; yield return null;
             var restarted = Object.FindFirstObjectByType<GameFlow>(); Assert.That(restarted.agro.Ledger.Value, Is.EqualTo(100));
             Assert.That(Object.FindObjectsByType<MischiefProp>(FindObjectsSortMode.None).All(p => !p.Broken), Is.True);
+        }
+        [UnityTest] public IEnumerator ApartmentRubAndWorldUiAreOneTimeAndFullResolution()
+        {
+            yield return SceneManager.LoadSceneAsync("Apartment"); yield return null;
+            flow = Object.FindFirstObjectByType<GameFlow>(); cat = flow.cat;
+            var rub = cat.GetComponent<RubInteractor>();
+            Assert.That(rub.targets.Length, Is.EqualTo(5));
+            foreach (var target in rub.targets)
+            {
+                Assert.That(NavMesh.SamplePosition(target.TargetPosition, out var reachable, rub.reach, NavMesh.AllAreas), Is.True, target.name + " has no nearby approach");
+                Assert.That(target.worldIndicator.layer, Is.EqualTo(13));
+                Assert.That(target.Mark(cat.gameObject), Is.True);
+                Assert.That(target.Mark(cat.gameObject), Is.False);
+                Assert.That(target.worldIndicator.activeSelf, Is.False);
+                Assert.That(target.markedRenderers.All(renderer => (renderer.renderingLayerMask & (1u << 9)) != 0), Is.True);
+            }
+            Assert.That(flow.agro.Ledger.Value, Is.EqualTo(60));
+            Assert.That(Object.FindObjectsByType<MischiefProp>(FindObjectsSortMode.None).Where(p => p.breakable)
+                .All(p => p.intactVisual.GetComponentsInChildren<Renderer>(true).All(r => (r.renderingLayerMask & (1u << 8)) != 0)), Is.True);
+            var composition = Object.FindObjectsByType<PixelComposition>(FindObjectsSortMode.None).Single(c => c.isActiveAndEnabled);
+            Assert.That(composition.worldUICamera.targetTexture.height, Is.EqualTo(Screen.height));
+            Assert.That(composition.worldCamera.targetTexture.height, Is.EqualTo(composition.pixelHeight));
+        }
+        [UnityTest] public IEnumerator ChargedSlapLaunchesLightApartmentPropsFarther()
+        {
+            yield return SceneManager.LoadSceneAsync("Apartment"); yield return null;
+            flow = Object.FindFirstObjectByType<GameFlow>(); cat = flow.cat;
+            var props = Object.FindObjectsByType<MischiefProp>(FindObjectsSortMode.None);
+            var book = props.First(p => p.name.Contains("Launchable book"));
+            var vase = props.First(p => p.name.Contains("Vase") && p.breakable);
+            var light = book.GetComponent<Rigidbody>(); var heavy = vase.GetComponent<Rigidbody>();
+            light.position = new Vector3(25, 2, 0); heavy.position = new Vector3(28, 2, 0);
+            light.useGravity = false; heavy.useGravity = false;
+            light.linearVelocity = heavy.linearVelocity = Vector3.zero;
+            vase.breakCharge = 2;
+            Physics.SyncTransforms();
+            book.ReceiveHit(new HitContext(1, cat.gameObject, light.worldCenterOfMass, Vector3.forward, 1, 3));
+            vase.ReceiveHit(new HitContext(2, cat.gameObject, heavy.worldCenterOfMass, Vector3.forward, 1, 3));
+            yield return new WaitForFixedUpdate();
+            Assert.That(light.linearVelocity.magnitude, Is.GreaterThan(heavy.linearVelocity.magnitude * 2));
+        }
+        [UnityTest] public IEnumerator OwnerKnockdownCreditsEachApartmentRoomOnlyOnce()
+        {
+            yield return SceneManager.LoadSceneAsync("Apartment"); yield return null;
+            flow = Object.FindFirstObjectByType<GameFlow>(); cat = flow.cat;
+            var owner = flow.owner;
+            Assert.That(owner.rewardAreas.Length, Is.EqualTo(4));
+            foreach (var room in owner.rewardAreas)
+            {
+                Vector3 point = room.transform.position;
+                owner.ForceCalmAt(point, Quaternion.identity);
+                float before = flow.agro.Ledger.Value;
+                owner.ReceiveHit(new HitContext(1, cat.gameObject, owner.hips.position, Vector3.forward, 0, 1));
+                Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 12), room.roomName);
+                owner.ForceCalmAt(point, Quaternion.identity);
+                owner.ReceiveHit(new HitContext(2, cat.gameObject, owner.hips.position, Vector3.forward, 0, 1));
+                Assert.That(flow.agro.Ledger.Value, Is.EqualTo(before - 12), room.roomName + " repeated");
+            }
+            owner.ForceCalmAt(new Vector3(1.8f, 1.25f, -10), Quaternion.identity);
+            owner.ReceiveHit(new HitContext(3, cat.gameObject, owner.hips.position, Vector3.forward, 0, 1));
+            Assert.That(flow.agro.Ledger.Value, Is.EqualTo(52));
+        }
+        [UnityTest] public IEnumerator ApartmentStageQueueStopsTimerAndReachesVictory()
+        {
+            yield return SceneManager.LoadSceneAsync("Apartment"); yield return null;
+            flow = Object.FindFirstObjectByType<GameFlow>(); cat = flow.cat;
+            if (flow.Paused) flow.TogglePause();
+            yield return null; flow.cutscenes.Skip(); yield return null;
+            Assert.That(flow.State, Is.EqualTo(GameState.Playing));
+            yield return new WaitForSeconds(.1f);
+            Assert.That(flow.ElapsedTime, Is.GreaterThan(0));
+            flow.TogglePause(); float held = flow.ElapsedTime;
+            yield return new WaitForSecondsRealtime(.15f);
+            Assert.That(flow.ElapsedTime, Is.EqualTo(held).Within(.001f));
+            flow.TogglePause();
+            // One very large reward crosses all three thresholds. Cutscenes must still queue in order.
+            flow.agro.Ledger.Apply(new MischiefEvent(-100, MischiefKind.Break, true), 100);
+            Assert.That(flow.agro.Ledger.Value, Is.Zero);
+            float stopped = flow.ElapsedTime;
+            CutsceneSequence[] expected = { flow.stageOne, flow.stageTwo, flow.ending };
+            foreach (var sequence in expected)
+            {
+                float deadline = Time.time + 8;
+                while (flow.cutscenes.Active != sequence && Time.time < deadline) yield return null;
+                Assert.That(flow.cutscenes.Active, Is.EqualTo(sequence));
+                if (sequence == flow.stageTwo) flow.cutscenes.Skip();
+                else
+                {
+                    for (int line = 0; line < sequence.shots.Length; line++)
+                    {
+                        Assert.That(flow.cutscenes.Caption, Is.EqualTo(sequence.shots[line].caption));
+                        yield return new WaitForSeconds(.2f);
+                        flow.cutscenes.Advance();
+                    }
+                }
+                yield return null;
+            }
+            float completeBy = Time.time + 2;
+            while (flow.State != GameState.Complete && Time.time < completeBy) yield return null;
+            Assert.That(flow.State, Is.EqualTo(GameState.Complete));
+            Assert.That(flow.presentation.victoryScreen.activeSelf, Is.True);
+            Assert.That(flow.ElapsedTime, Is.EqualTo(stopped).Within(.001f));
+            Assert.That(flow.owner.brain.Stay, Is.True);
         }
     }
 }

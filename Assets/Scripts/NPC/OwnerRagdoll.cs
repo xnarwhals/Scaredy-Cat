@@ -13,6 +13,7 @@ namespace ScaredyCat
         public Transform hips;
         public AgroMeter agro;
         public FeedbackDirector feedback;
+        public OwnerRewardArea[] rewardAreas;
         public float impulseMultiplier = 7, recoveryDelay = 1.8f, maximumDownTime = 5, blendDuration = .55f;
         public LayerMask recoveryObstacles = ~((1 << 10) | (1 << 11) | (1 << 12));
         public OwnerState State { get; private set; }
@@ -41,7 +42,18 @@ namespace ScaredyCat
                 if (agent.enabled && agent.isOnNavMesh) agent.ResetPath();
                 agent.enabled = false; animator.enabled = false; standingCollider.enabled = false;
                 SetPhysical(true); State = OwnerState.Ragdoll; downAt = Time.time;
-                if (agro) agro.Report(new MischiefEvent(GetInstanceID(), MischiefKind.OwnerKnockdown, hit.Instigator != null, ++cycle));
+                ++cycle;
+                if (agro && hit.Instigator)
+                {
+                    int room = 0;
+                    if (rewardAreas != null && rewardAreas.Length > 0)
+                    {
+                        for (int i = 0; i < rewardAreas.Length; i++)
+                            if (rewardAreas[i] && rewardAreas[i].Contains(transform.position)) { room = i + 1; break; }
+                    }
+                    else room = cycle; // MechanicsLab retains its repeatable owner station.
+                    if (room > 0) agro.Report(new MischiefEvent(GetInstanceID(), MischiefKind.OwnerKnockdown, true, room));
+                }
             }
             Rigidbody nearest = bones[0];
             foreach (var bone in bones)

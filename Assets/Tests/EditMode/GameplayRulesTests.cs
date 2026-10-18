@@ -39,13 +39,24 @@ namespace ScaredyCat.Tests
             ledger.Apply(new MischiefEvent(4, MischiefKind.Knock, true), 3);
             Assert.That(ledger.Value, Is.EqualTo(87));
         }
-        [Test] public void OwnerCreditRequiresANewRecoveryCycle()
+        [Test] public void OwnerCreditIsOncePerRoom()
         {
             var ledger = new AgroLedger(100);
             ledger.Apply(new MischiefEvent(2, MischiefKind.OwnerKnockdown, true, 1), 12);
             ledger.Apply(new MischiefEvent(2, MischiefKind.OwnerKnockdown, true, 1), 12);
             ledger.Apply(new MischiefEvent(2, MischiefKind.OwnerKnockdown, true, 2), 12);
             Assert.That(ledger.Value, Is.EqualTo(76));
+        }
+        [Test] public void SlapBreakAndRubHaveIndependentOneTimeRewards()
+        {
+            var ledger = new AgroLedger(100);
+            Assert.That(ledger.Apply(new MischiefEvent(7, MischiefKind.Knock, true), 3), Is.True);
+            Assert.That(ledger.Apply(new MischiefEvent(7, MischiefKind.Knock, true), 3), Is.False);
+            Assert.That(ledger.Apply(new MischiefEvent(7, MischiefKind.Break, true), 10), Is.True);
+            Assert.That(ledger.Apply(new MischiefEvent(7, MischiefKind.Break, true), 10), Is.False);
+            Assert.That(ledger.Apply(new MischiefEvent(8, MischiefKind.Mark, true), 8), Is.True);
+            Assert.That(ledger.Apply(new MischiefEvent(8, MischiefKind.Mark, true), 8), Is.False);
+            Assert.That(ledger.Value, Is.EqualTo(79));
         }
         [Test] public void ReentrantCompletionClampsAndFiresOnlyOnce()
         {

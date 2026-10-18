@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+using TMPro;
 using UnityEditor;
 namespace ScaredyCat.Editor
 {
@@ -56,11 +57,17 @@ namespace ScaredyCat.Editor
             var image = obj.GetComponent<Image>(); image.color = color; image.raycastTarget = false;
             return image;
         }
-        static Text Text(string name, Transform parent, string content, int size, TextAnchor alignment)
+        static TextMeshProUGUI Text(string name, Transform parent, string content, int size, TextAnchor alignment)
         {
-            var obj = new GameObject(name, typeof(RectTransform), typeof(Text)); obj.transform.SetParent(parent, false);
-            var text = obj.GetComponent<Text>(); text.text = content; text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); text.fontSize = size;
-            text.alignment = alignment; text.color = Cream; text.raycastTarget = false; return text;
+            var obj = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI)); obj.transform.SetParent(parent, false);
+            var text = obj.GetComponent<TextMeshProUGUI>(); text.text = content; text.fontSize = size;
+            text.alignment = alignment switch
+            {
+                TextAnchor.MiddleLeft => TextAlignmentOptions.MidlineLeft,
+                TextAnchor.MiddleRight => TextAlignmentOptions.MidlineRight,
+                _ => TextAlignmentOptions.Center
+            };
+            text.color = Cream; text.raycastTarget = false; return text;
         }
         static Button Button(string label, Transform parent, Vector2 position)
         {

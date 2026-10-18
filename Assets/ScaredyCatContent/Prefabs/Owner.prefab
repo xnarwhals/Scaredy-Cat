@@ -884,6 +884,12 @@ MonoBehaviour:
   ragdoll: {fileID: 2869910902589207281}
   wanderPoints: []
   introDance: {fileID: -203655887218126122, guid: af70d660716ca4ddcbe79844f856eb22, type: 3}
+  macarenaDance: {fileID: -203655887218126122, guid: 3dca4b848411a43e0b6813f0d754790e, type: 3}
+  endingSit: {fileID: 0}
+  macarenaChance: 0.3
+  macarenaPauseDuration: 3.2
+  roamingSpeed: 2.25
+  pauseAtDestination: 0.35
   Stay: 0
 --- !u!114 &2869910902589207281
 MonoBehaviour:
@@ -920,13 +926,14 @@ MonoBehaviour:
   hips: {fileID: 108363282951412106}
   agro: {fileID: 0}
   feedback: {fileID: 0}
+  rewardAreas: []
   impulseMultiplier: 7
   recoveryDelay: 1.8
   maximumDownTime: 5
   blendDuration: 0.55
   recoveryObstacles:
     serializedVersion: 2
-    m_Bits: 4294960127
+    m_Bits: 25399
 --- !u!1 &3577767046301401635
 GameObject:
   m_ObjectHideFlags: 0

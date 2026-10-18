@@ -1,4 +1,5 @@
 using Unity.AI.Navigation;
+using UnityEngine.AI;
 using UnityEngine;
 
 namespace ScaredyCat
@@ -18,12 +19,21 @@ namespace ScaredyCat
                 if (!doorway) continue;
                 var linkObject = new GameObject("Owner NavMesh doorway link - " + doorway.name);
                 linkObject.transform.SetParent(transform, false);
-                linkObject.transform.SetPositionAndRotation(doorway.TransformPoint(doorCenterOffset), doorway.rotation);
+                Vector3 center = doorway.TransformPoint(doorCenterOffset);
+                linkObject.transform.SetPositionAndRotation(center, doorway.rotation);
 
                 var link = linkObject.AddComponent<NavMeshLink>();
                 link.agentTypeID = 0;
-                link.startPoint = Vector3.back * halfDepth;
-                link.endPoint = Vector3.forward * halfDepth;
+                Vector3 acrossDoor = doorway.forward * halfDepth;
+                if (!NavMesh.SamplePosition(center - acrossDoor, out var start, 1.5f, NavMesh.AllAreas) ||
+                    !NavMesh.SamplePosition(center + acrossDoor, out var end, 1.5f, NavMesh.AllAreas))
+                {
+                    Debug.LogWarning($"Could not find NavMesh endpoints for doorway {doorway.name}.", doorway);
+                    Destroy(linkObject);
+                    continue;
+                }
+                link.startPoint = linkObject.transform.InverseTransformPoint(start.position);
+                link.endPoint = linkObject.transform.InverseTransformPoint(end.position);
                 link.width = width;
                 link.costModifier = -1;
                 link.bidirectional = true;

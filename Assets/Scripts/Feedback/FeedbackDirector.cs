@@ -39,6 +39,11 @@ namespace ScaredyCat
             Emit(hit.Point, Color.Lerp(new Color(1, .8f, .4f), Color.white, hit.Charge), 5);
         }
         public void Shatter(Vector3 point) { Play(settings ? settings.shatter : null, 2); Emit(point, new Color(1, .85f, .55f), 12); shake = Mathf.Max(shake, .5f); }
+        public void MarkTerritory(Vector3 point)
+        {
+            Emit(point, new Color(.32f, 1f, .48f), 18);
+            shake = Mathf.Max(shake, .2f);
+        }
         void Land(float speed) { Play(settings ? settings.landing : null, 3, Mathf.Clamp01(speed / 12)); shake = Mathf.Max(shake, Mathf.Clamp01(speed / 15) * .45f); }
         void Reward(MischiefEvent outcome) => Play(settings ? settings.reward : null, 4, .4f);
         public void Accept() => Play(settings ? settings.acceptance : null, 5);

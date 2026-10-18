@@ -14,6 +14,7 @@ namespace ScaredyCat
         [Range(0, 1)] public float splineEnd = 1;
         public Vector3 lookAtOffset;
         public float duration = 2, blendIn = .5f, fieldOfView = 65;
+        public bool waitForAdvance;
         [TextArea] public string caption;
         public AnimationCurve ease = AnimationCurve.EaseInOut(0, 0, 1, 1);
         public UnityEvent onEnter = new UnityEvent();

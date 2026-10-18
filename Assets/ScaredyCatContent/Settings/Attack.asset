@@ -45,4 +45,4 @@ MonoBehaviour:
     m_RotationOrder: 4
   hitMask:
     serializedVersion: 2
-    m_Bits: 4294960895
+    m_Bits: 26167
