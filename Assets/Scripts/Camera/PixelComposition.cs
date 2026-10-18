@@ -1,256 +1,215 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 /// <summary>
-/// Renders a crisp skybox directly to the display, then composites a
-/// pixel-resolution 3D world and full-resolution world-space UI over it.
+/// Composites a low-resolution world render with a full-resolution world-space
+/// UI render. The regular screen-space HUD stays above both outputs.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PixelComposition : MonoBehaviour
 {
     [Header("Cameras")]
-    [SerializeField] private Camera worldCamera;
-    [SerializeField] private Camera worldUICamera;
-    [SerializeField] private Camera skyboxCamera;
+    public Camera worldCamera;
+    [Tooltip("Renders world-space UI at display resolution. Created automatically when empty.")]
+    public Camera worldUICamera;
 
-    [Header("Output")]
-    [SerializeField] private RawImage pixelWorldOutput;
+    [Header("Outputs")]
+    public RawImage pixelWorldOutput;
     [SerializeField] private RawImage worldUIOutput;
-    [SerializeField, Min(1)] private int pixelHeight = 288;
+    [Min(64)] public int pixelHeight = 288;
 
     [Header("Layers")]
-    [SerializeField] private LayerMask worldLayers = 23;
-    [SerializeField] private LayerMask worldUILayers = 64;
+    [SerializeField] private LayerMask worldLayers = ~0;
+    [SerializeField] private LayerMask worldUILayers = 1 << 5;
 
     private RenderTexture worldTexture;
     private RenderTexture worldUITexture;
-    private int outputWidth;
-    private int outputHeight;
-    private int appliedPixelHeight;
+    private Camera displayCamera;
+    private GameObject generatedUICameraObject;
+    private GameObject generatedUIOutputObject;
+    private int width;
+    private int height;
+    private int appliedHeight;
+    private RenderTexture originalTarget;
+    private int originalCullingMask;
+    private bool ownsWorldUICamera;
 
     private void OnEnable()
     {
-        RenderPipelineManager.beginCameraRendering += HandleBeginCameraRendering;
-        ConfigureCameras();
-        EnsureRenderTextures();
-    }
-
-    private void Update()
-    {
-        EnsureRenderTextures();
-    }
-
-    private void LateUpdate()
-    {
-        // DynamicCamera can update the master lens during Update/coroutines.
-        // Copy it after that work and before any camera renders this frame.
-        MatchAuxiliaryCameraLenses();
-    }
-
-    private void OnDisable()
-    {
-        RenderPipelineManager.beginCameraRendering -= HandleBeginCameraRendering;
-        ReleaseRenderTextures();
-    }
-
-    private void HandleBeginCameraRendering(ScriptableRenderContext context, Camera camera)
-    {
-        if (camera == worldCamera)
+        if (worldCamera == null || pixelWorldOutput == null)
         {
-            ClearRenderTexture(worldTexture, worldCamera.backgroundColor);
-        }
-        else if (camera == worldUICamera)
-        {
-            ClearRenderTexture(worldUITexture, Color.clear);
-        }
-    }
-
-    private static void ClearRenderTexture(RenderTexture texture, Color clearColor)
-    {
-        if (texture == null || !texture.IsCreated())
-        {
-            return;
-        }
-
-        RenderTexture previous = RenderTexture.active;
-        RenderTexture.active = texture;
-        GL.Clear(true, true, clearColor);
-        RenderTexture.active = previous;
-    }
-
-    private void ConfigureCameras()
-    {
-        if (worldCamera == null || worldUICamera == null || skyboxCamera == null)
-        {
-            Debug.LogError(
-                $"{nameof(PixelCameraComposition)} on {name} requires world, World UI, and skybox cameras.",
-                this);
+            Debug.LogError($"{nameof(PixelComposition)} on {name} requires a world camera and pixel output.", this);
             enabled = false;
             return;
         }
 
-        // The skybox is the only camera that renders directly to the display.
-        // It supplies a stable, opaque background before the two transparent
-        // RenderTextures are drawn by the Screen Space Overlay canvas.
-        skyboxCamera.cullingMask = 0;
-        skyboxCamera.clearFlags = CameraClearFlags.Skybox;
-        skyboxCamera.targetTexture = null;
-
-        worldCamera.cullingMask = worldLayers;
-        worldCamera.clearFlags = CameraClearFlags.SolidColor;
-        worldCamera.backgroundColor = Color.clear;
-
-        worldUICamera.cullingMask = worldUILayers;
-        worldUICamera.clearFlags = CameraClearFlags.SolidColor;
-        worldUICamera.backgroundColor = Color.clear;
-        worldUICamera.allowHDR = false;
-        worldUICamera.allowMSAA = false;
+        originalTarget = worldCamera.targetTexture;
+        originalCullingMask = worldCamera.cullingMask;
+        pixelWorldOutput.raycastTarget = false;
+        EnsureWorldUIRig();
+        PutWorldSpaceCanvasesOnUILayer();
+        CreateDisplayCamera();
+        Refresh();
     }
 
-    private void EnsureRenderTextures()
+    private void LateUpdate()
     {
-        if (!enabled || worldCamera == null || worldUICamera == null)
+        Refresh();
+        MatchWorldUICamera();
+    }
+
+    private void OnDisable()
+    {
+        if (worldCamera != null)
         {
-            return;
+            if (worldCamera.targetTexture == worldTexture) worldCamera.targetTexture = originalTarget;
+            worldCamera.cullingMask = originalCullingMask;
         }
 
-        if (!TryGetOutputSize(out int screenWidth, out int screenHeight))
+        if (worldUICamera != null && worldUICamera.targetTexture == worldUITexture)
+            worldUICamera.targetTexture = null;
+        if (worldUICamera != null) worldUICamera.enabled = false;
+        if (pixelWorldOutput != null && pixelWorldOutput.texture == worldTexture)
+            pixelWorldOutput.texture = null;
+        if (worldUIOutput != null && worldUIOutput.texture == worldUITexture)
+            worldUIOutput.texture = null;
+
+        if (displayCamera != null) Destroy(displayCamera.gameObject);
+        if (ownsWorldUICamera && generatedUICameraObject != null) Destroy(generatedUICameraObject);
+        if (generatedUIOutputObject != null) Destroy(generatedUIOutputObject);
+        displayCamera = null;
+        generatedUICameraObject = null;
+        if (ownsWorldUICamera) worldUICamera = null;
+        ownsWorldUICamera = false;
+        generatedUIOutputObject = null;
+        ReleaseTextures();
+    }
+
+
+    private void EnsureWorldUIRig()
+    {
+        if (worldUICamera == null)
         {
-            return;
+            generatedUICameraObject = new GameObject("World UI Camera", typeof(Camera));
+            generatedUICameraObject.hideFlags = HideFlags.HideAndDontSave;
+            generatedUICameraObject.transform.SetParent(worldCamera.transform, false);
+            worldUICamera = generatedUICameraObject.GetComponent<Camera>();
+            ownsWorldUICamera = true;
         }
 
-        int requestedPixelHeight = Mathf.Max(1, pixelHeight);
-        if (worldTexture != null && worldUITexture != null &&
-            outputWidth == screenWidth && outputHeight == screenHeight &&
-            appliedPixelHeight == requestedPixelHeight)
+        // A Canvas with World Space render mode must name the camera that
+        // renders it. Layer filtering alone does not reliably route it.
+        if (worldUIOutput == null)
         {
-            return;
+            generatedUIOutputObject = new GameObject("World UI Output", typeof(RectTransform), typeof(RawImage));
+            generatedUIOutputObject.hideFlags = HideFlags.HideAndDontSave;
+            generatedUIOutputObject.transform.SetParent(transform, false);
+            RectTransform rect = generatedUIOutputObject.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            generatedUIOutputObject.transform.SetSiblingIndex(pixelWorldOutput.transform.GetSiblingIndex() + 1);
+            worldUIOutput = generatedUIOutputObject.GetComponent<RawImage>();
         }
+
+        worldUIOutput.raycastTarget = false;
+    }
+
+    private void PutWorldSpaceCanvasesOnUILayer()
+    {
+        int uiMask = worldUILayers.value;
+        if (uiMask == 0) return;
+
+        Canvas[] canvases = FindObjectsOfType<Canvas>(true);
+        foreach (Canvas canvas in canvases)
+        {
+            if (canvas.renderMode != RenderMode.WorldSpace || (uiMask & (1 << canvas.gameObject.layer)) == 0)
+                continue;
+
+            canvas.worldCamera = worldUICamera;
+            SetLayerRecursively(canvas.transform, canvas.gameObject.layer);
+        }
+    }
+
+    private static void SetLayerRecursively(Transform root, int layer)
+    {
+        root.gameObject.layer = layer;
+        for (int i = 0; i < root.childCount; i++)
+            SetLayerRecursively(root.GetChild(i), layer);
+    }
+
+    private void CreateDisplayCamera()
+    {
+        GameObject displayObject = new GameObject("Pixel display", typeof(Camera));
+        displayObject.hideFlags = HideFlags.HideAndDontSave;
+        displayObject.transform.SetParent(transform, false);
+        displayCamera = displayObject.GetComponent<Camera>();
+        displayCamera.cullingMask = 0;
+        displayCamera.clearFlags = CameraClearFlags.Skybox;
+        displayCamera.depth = worldCamera.depth - 1;
+        displayCamera.targetDisplay = worldCamera.targetDisplay;
+        displayCamera.allowHDR = worldCamera.allowHDR;
+        displayCamera.allowMSAA = false;
+        displayCamera.enabled = true;
+    }
+
+    private void Refresh()
+    {
+        if (worldCamera == null || worldUICamera == null || pixelWorldOutput == null || worldUIOutput == null)
+            return;
+
+        int screenWidth = Screen.width;
+        int screenHeight = Screen.height;
+        if (screenWidth < 64 || screenHeight < 64 || screenWidth > SystemInfo.maxTextureSize || screenHeight > SystemInfo.maxTextureSize)
+            return;
+
+        int requestedHeight = Mathf.Clamp(pixelHeight, 64, SystemInfo.maxTextureSize);
+        if (worldTexture != null && worldUITexture != null && width == screenWidth && height == screenHeight && appliedHeight == requestedHeight)
+            return;
 
         float aspect = (float)screenWidth / screenHeight;
-        int pixelWidth = Mathf.Max(1, Mathf.RoundToInt(requestedPixelHeight * aspect));
-        RenderTexture replacementWorld = CreateRenderTexture(
-            "Pixel World (Runtime)", pixelWidth, requestedPixelHeight, FilterMode.Point, 24);
-        RenderTexture replacementWorldUI = CreateRenderTexture(
-            "World UI (Runtime)", screenWidth, screenHeight, FilterMode.Bilinear, 24);
-
-        // Keep displaying the last valid frame if Unity briefly reports an
-        // invalid Game-view size during a domain reload or layout transition.
-        if (replacementWorld == null || replacementWorldUI == null)
+        int pixelWidth = Mathf.Clamp(Mathf.RoundToInt(requestedHeight * aspect), 1, SystemInfo.maxTextureSize);
+        RenderTexture replacementWorld = CreateTexture("Cat Pixel World", pixelWidth, requestedHeight, FilterMode.Point, 24);
+        RenderTexture replacementUI = CreateTexture("Cat World UI", screenWidth, screenHeight, FilterMode.Bilinear, 24);
+        if (replacementWorld == null || replacementUI == null)
         {
-            ReleaseRenderTexture(ref replacementWorld);
-            ReleaseRenderTexture(ref replacementWorldUI);
+            ReleaseTexture(replacementWorld);
+            ReleaseTexture(replacementUI);
             return;
         }
 
         RenderTexture previousWorld = worldTexture;
-        RenderTexture previousWorldUI = worldUITexture;
+        RenderTexture previousUI = worldUITexture;
         worldTexture = replacementWorld;
-        worldUITexture = replacementWorldUI;
-        outputWidth = screenWidth;
-        outputHeight = screenHeight;
-        appliedPixelHeight = requestedPixelHeight;
+        worldUITexture = replacementUI;
+        width = screenWidth;
+        height = screenHeight;
+        appliedHeight = requestedHeight;
 
+        worldCamera.cullingMask = worldLayers & ~(int)worldUILayers;
         worldCamera.targetTexture = worldTexture;
+        worldCamera.clearFlags = CameraClearFlags.SolidColor;
+        worldCamera.backgroundColor = Color.clear;
+        worldUICamera.cullingMask = worldUILayers;
         worldUICamera.targetTexture = worldUITexture;
+        worldUICamera.clearFlags = CameraClearFlags.SolidColor;
+        worldUICamera.backgroundColor = Color.clear;
+        worldUICamera.allowHDR = false;
+        worldUICamera.allowMSAA = false;
+        worldUICamera.enabled = true;
+        pixelWorldOutput.texture = worldTexture;
+        worldUIOutput.texture = worldUITexture;
 
-        if (pixelWorldOutput != null)
-        {
-            pixelWorldOutput.texture = worldTexture;
-        }
-
-        if (worldUIOutput != null)
-        {
-            worldUIOutput.texture = worldUITexture;
-        }
-
-        ReleaseRenderTexture(ref previousWorld);
-        ReleaseRenderTexture(ref previousWorldUI);
-        MatchAuxiliaryCameraLenses();
+        MatchWorldUICamera();
+        ReleaseTexture(previousWorld);
+        ReleaseTexture(previousUI);
     }
 
-    private bool TryGetOutputSize(out int width, out int height)
+    private void MatchWorldUICamera()
     {
-        width = Screen.width;
-        height = Screen.height;
-        if (IsValidOutputSize(width, height))
-        {
-            return true;
-        }
-
-        if (Display.main != null)
-        {
-            width = Display.main.renderingWidth;
-            height = Display.main.renderingHeight;
-            if (IsValidOutputSize(width, height))
-            {
-                return true;
-            }
-        }
-
-        // When valid textures already exist, retaining them is safer than
-        // replacing them with dimensions reported during an editor transition.
-        width = outputWidth;
-        height = outputHeight;
-        return worldTexture != null && worldUITexture != null &&
-            IsValidOutputSize(width, height);
-    }
-
-    private static bool IsValidOutputSize(int width, int height)
-    {
-        if (width < 64 || height < 64 ||
-            width > SystemInfo.maxTextureSize || height > SystemInfo.maxTextureSize)
-        {
-            return false;
-        }
-
-        float aspect = (float)width / height;
-        return aspect >= 0.5f && aspect <= 4f;
-    }
-
-    private static RenderTexture CreateRenderTexture(
-        string textureName,
-        int width,
-        int height,
-        FilterMode filterMode,
-        int depthBits)
-    {
-        var texture = new RenderTexture(
-            width,
-            height,
-            depthBits,
-            RenderTextureFormat.ARGB32,
-            RenderTextureReadWrite.Default)
-        {
-            name = textureName,
-            filterMode = filterMode,
-            wrapMode = TextureWrapMode.Clamp,
-            useMipMap = false,
-            autoGenerateMips = false,
-            antiAliasing = 1,
-            hideFlags = HideFlags.DontSave
-        };
-
-        if (texture.Create() && texture.IsCreated())
-        {
-            return texture;
-        }
-
-        Destroy(texture);
-        return null;
-    }
-
-    private void MatchAuxiliaryCameraLenses()
-    {
-        if (worldCamera == null || worldUICamera == null || skyboxCamera == null)
-        {
-            return;
-        }
-
-        // The UI camera is a zeroed child of the world camera, so it already
-        // shares its pose and shake. Matching the lens makes a world-space
-        // canvas land on the exact same screen coordinates in both textures.
+        if (worldCamera == null || worldUICamera == null) return;
+        worldUICamera.transform.SetPositionAndRotation(worldCamera.transform.position, worldCamera.transform.rotation);
         worldUICamera.orthographic = worldCamera.orthographic;
         worldUICamera.orthographicSize = worldCamera.orthographicSize;
         worldUICamera.fieldOfView = worldCamera.fieldOfView;
@@ -260,51 +219,38 @@ public sealed class PixelComposition : MonoBehaviour
         worldUICamera.sensorSize = worldCamera.sensorSize;
         worldUICamera.lensShift = worldCamera.lensShift;
         worldUICamera.gateFit = worldCamera.gateFit;
-
-        skyboxCamera.orthographic = worldCamera.orthographic;
-        skyboxCamera.orthographicSize = worldCamera.orthographicSize;
-        skyboxCamera.fieldOfView = worldCamera.fieldOfView;
-        skyboxCamera.nearClipPlane = worldCamera.nearClipPlane;
-        skyboxCamera.farClipPlane = worldCamera.farClipPlane;
-        skyboxCamera.usePhysicalProperties = worldCamera.usePhysicalProperties;
-        skyboxCamera.sensorSize = worldCamera.sensorSize;
-        skyboxCamera.lensShift = worldCamera.lensShift;
-        skyboxCamera.gateFit = worldCamera.gateFit;
-
-        if (outputHeight > 0)
-        {
-            float aspect = (float)outputWidth / outputHeight;
-            worldCamera.aspect = aspect;
-            worldUICamera.aspect = aspect;
-            skyboxCamera.aspect = aspect;
-        }
+        worldUICamera.aspect = width > 0 && height > 0 ? (float)width / height : worldCamera.aspect;
     }
 
-    private void ReleaseRenderTextures()
+    private static RenderTexture CreateTexture(string textureName, int textureWidth, int textureHeight, FilterMode filter, int depthBits)
     {
-        if (worldCamera != null && worldCamera.targetTexture == worldTexture)
+        var texture = new RenderTexture(textureWidth, textureHeight, depthBits, RenderTextureFormat.ARGB32)
         {
-            worldCamera.targetTexture = null;
-        }
-
-        if (worldUICamera != null && worldUICamera.targetTexture == worldUITexture)
-        {
-            worldUICamera.targetTexture = null;
-        }
-
-        ReleaseRenderTexture(ref worldTexture);
-        ReleaseRenderTexture(ref worldUITexture);
+            name = textureName,
+            filterMode = filter,
+            wrapMode = TextureWrapMode.Clamp,
+            antiAliasing = 1,
+            useMipMap = false,
+            autoGenerateMips = false,
+            hideFlags = HideFlags.DontSave
+        };
+        if (texture.Create() && texture.IsCreated()) return texture;
+        ReleaseTexture(texture);
+        return null;
     }
 
-    private static void ReleaseRenderTexture(ref RenderTexture texture)
+    private void ReleaseTextures()
     {
-        if (texture == null)
-        {
-            return;
-        }
+        ReleaseTexture(worldTexture);
+        ReleaseTexture(worldUITexture);
+        worldTexture = null;
+        worldUITexture = null;
+    }
 
+    private static void ReleaseTexture(RenderTexture texture)
+    {
+        if (texture == null) return;
         texture.Release();
         Destroy(texture);
-        texture = null;
     }
 }

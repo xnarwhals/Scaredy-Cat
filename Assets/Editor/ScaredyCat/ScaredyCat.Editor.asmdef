@@ -1,0 +1,1 @@
+{"name":"ScaredyCat.Editor","rootNamespace":"ScaredyCat.Editor","references":["ScaredyCat.Runtime","Unity.InputSystem","UnityEngine.UI","Unity.AI.Navigation","Unity.Splines","Unity.Mathematics","RuntimeAssembly","Unity.RenderPipelines.Universal.Runtime"],"includePlatforms":["Editor"]}
