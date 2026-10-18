@@ -32,14 +32,12 @@ namespace ScaredyCat.Editor
             var meter = MakeImage("Agro track", canvasObject.transform, Ink); Place(meter.rectTransform, new Vector2(0, 1), new Vector2(32, -94), new Vector2(270, 12), new Vector2(0, 1));
             hud.agroFill = MakeImage("Agro fill", meter.transform, new Color(.96f, .39f, .25f)); Stretch(hud.agroFill.rectTransform); hud.agroFill.type = Image.Type.Filled; hud.agroFill.fillMethod = Image.FillMethod.Horizontal;
             hud.agroFill.sprite = FillSprite();
-            hud.agroText = Text("Agro label", canvasObject.transform, "AGRO  100", 13, TextAnchor.MiddleLeft); Place(hud.agroText.rectTransform, new Vector2(0, 1), new Vector2(32, -113), new Vector2(270, 22), new Vector2(0, 1));
             var reticle = Text("Reticle", canvasObject.transform, "+", 22, TextAnchor.MiddleCenter); Place(reticle.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(30, 30), new Vector2(.5f, .5f)); hud.reticle = reticle.gameObject;
             var charge = MakeImage("Charge track", canvasObject.transform, Ink); Place(charge.rectTransform, new Vector2(.5f, .5f), new Vector2(0, -38), new Vector2(110, 5), new Vector2(.5f, .5f)); hud.chargeGroup = charge.gameObject;
             hud.chargeFill = MakeImage("Charge fill", charge.transform, Cream); Stretch(hud.chargeFill.rectTransform); hud.chargeFill.type = Image.Type.Filled; hud.chargeFill.fillMethod = Image.FillMethod.Horizontal;
             hud.chargeFill.sprite = hud.agroFill.sprite;
             hud.caption = Text("Narrative caption", canvasObject.transform, "", 25, TextAnchor.MiddleCenter); Place(hud.caption.rectTransform, new Vector2(.5f, 0), new Vector2(0, 100), new Vector2(1050, 80), new Vector2(.5f, 0));
             var shadow = hud.caption.gameObject.AddComponent<Shadow>(); shadow.effectColor = Color.black; shadow.effectDistance = new Vector2(2, -2);
-            hud.hint = Text("Controls", canvasObject.transform, "", 13, TextAnchor.MiddleCenter); Place(hud.hint.rectTransform, new Vector2(.5f, 0), new Vector2(0, 25), new Vector2(1180, 28), new Vector2(.5f, 0));
             var menu = MakeImage("Pause and completion", canvasObject.transform, Ink); Stretch(menu.rectTransform); menu.raycastTarget = true; hud.menu = menu.gameObject;
             hud.menuTitle = Text("Menu title", menu.transform, "CAT NAP", 38, TextAnchor.MiddleCenter); Place(hud.menuTitle.rectTransform, new Vector2(.5f, .5f), new Vector2(0, 175), new Vector2(950, 60), new Vector2(.5f, .5f));
             hud.menuBody = Text("Menu caption", menu.transform, "", 18, TextAnchor.MiddleCenter); Place(hud.menuBody.rectTransform, new Vector2(.5f, .5f), new Vector2(0, 120), new Vector2(900, 40), new Vector2(.5f, .5f));

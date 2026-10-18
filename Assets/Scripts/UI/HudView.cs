@@ -9,7 +9,7 @@ namespace ScaredyCat
         public PawAttack attack;
         public CutsceneManager cutscenes;
         public Image agroFill, chargeFill, fade;
-        public Text agroText, caption, hint, menuTitle, menuBody;
+        public Text caption, menuTitle, menuBody;
         public GameObject menu, reticle, chargeGroup;
         public Button resume, replay;
         public Slider sensitivity, motion;
@@ -25,12 +25,10 @@ namespace ScaredyCat
         {
             displayedAgro = Mathf.MoveTowards(displayedAgro, agro.Ledger.Value, Time.unscaledDeltaTime * 55);
             agroFill.fillAmount = displayedAgro / agro.Ledger.Maximum;
-            agroText.text = agro.Ledger.Value > 0 ? $"AGRO  {Mathf.CeilToInt(displayedAgro):000}" : "AT HOME";
             bool playing = flow.State == GameState.Playing && !cutscenes.IsPlaying && !flow.Paused && !flow.DebugVisible;
             reticle.SetActive(playing); chargeGroup.SetActive(playing && attack.State == PawState.Charging);
             chargeFill.fillAmount = attack.Charge;
             caption.text = cutscenes.Caption;
-            hint.text = cutscenes.IsPlaying ? "SPACE  skip" : flow.mechanicsLab ? "MECHANICS LAB   /   F1 test controls" : "WASD move   SPACE jump   SHIFT sprint   HOLD + RELEASE LMB swat";
             bool completed = flow.State == GameState.Complete;
             menu.SetActive(flow.Paused || completed);
             if (menu.activeSelf)
