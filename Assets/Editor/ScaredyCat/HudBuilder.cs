@@ -27,7 +27,7 @@ namespace ScaredyCat.Editor
             var scaler = canvasObject.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1280, 720); scaler.matchWidthOrHeight = .5f;
             var output = new GameObject("Pixel world", typeof(RectTransform), typeof(RawImage)); output.transform.SetParent(canvasObject.transform, false); Stretch(output.GetComponent<RectTransform>());
             var composition = canvasObject.AddComponent<PixelComposition>(); composition.worldCamera = camera; composition.pixelWorldOutput = output.GetComponent<RawImage>(); composition.pixelHeight = 288;
-            var hud = canvasObject.AddComponent<HudView>(); hud.flow = flow; hud.agro = agro; hud.attack = paw; hud.cutscenes = cutscenes;
+            var hud = canvasObject.AddComponent<HudView>(); hud.flow = flow; hud.agro = agro; hud.attack = paw; hud.cat = flow.cat; hud.cutscenes = cutscenes;
             var title = Text("Title", canvasObject.transform, "SCAREDY CAT", 22, TextAnchor.MiddleLeft); Place(title.rectTransform, new Vector2(0, 1), new Vector2(32, -30), new Vector2(320, 32), new Vector2(0, 1));
             var sub = Text("Subtitle", canvasObject.transform, "A VERY UNFAMILIAR HOME", 11, TextAnchor.MiddleLeft); sub.color = new Color(.85f, .8f, .65f); Place(sub.rectTransform, new Vector2(0, 1), new Vector2(33, -62), new Vector2(300, 20), new Vector2(0, 1));
             var meter = MakeImage("Agro track", canvasObject.transform, Ink); Place(meter.rectTransform, new Vector2(0, 1), new Vector2(32, -94), new Vector2(270, 12), new Vector2(0, 1));
@@ -40,7 +40,7 @@ namespace ScaredyCat.Editor
             hud.caption = Text("Narrative caption", canvasObject.transform, "", 25, TextAnchor.MiddleCenter); Place(hud.caption.rectTransform, new Vector2(.5f, 0), new Vector2(0, 100), new Vector2(1050, 80), new Vector2(.5f, 0));
             var shadow = hud.caption.gameObject.AddComponent<Shadow>(); shadow.effectColor = Color.black; shadow.effectDistance = new Vector2(2, -2);
             var menu = MakeImage("Pause and completion", canvasObject.transform, Ink); Stretch(menu.rectTransform); menu.raycastTarget = true; hud.menu = menu.gameObject;
-            hud.menuTitle = Text("Menu title", menu.transform, "CAT NAP", 38, TextAnchor.MiddleCenter); Place(hud.menuTitle.rectTransform, new Vector2(.5f, .5f), new Vector2(0, 175), new Vector2(950, 60), new Vector2(.5f, .5f));
+            hud.menuTitle = Text("Menu title", menu.transform, "", 38, TextAnchor.MiddleCenter); Place(hud.menuTitle.rectTransform, new Vector2(.5f, .5f), new Vector2(0, 175), new Vector2(950, 60), new Vector2(.5f, .5f));
             hud.menuBody = Text("Menu caption", menu.transform, "", 18, TextAnchor.MiddleCenter); Place(hud.menuBody.rectTransform, new Vector2(.5f, .5f), new Vector2(0, 120), new Vector2(900, 40), new Vector2(.5f, .5f));
             hud.resume = Button("Back to mischief", menu.transform, new Vector2(0, 55));
             hud.replay = Button("Start again", menu.transform, new Vector2(0, -5));

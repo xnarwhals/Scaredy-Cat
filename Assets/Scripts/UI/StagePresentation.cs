@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 namespace ScaredyCat
@@ -38,6 +39,7 @@ namespace ScaredyCat
         {
             if (finalTime && flow) finalTime.text = "FINAL TIME  " + FormatTime(flow.ElapsedTime);
             if (victoryScreen) victoryScreen.SetActive(true);
+            if (replay && EventSystem.current) EventSystem.current.SetSelectedGameObject(replay.gameObject);
         }
         static string FormatTime(float seconds)
         {

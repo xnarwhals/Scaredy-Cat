@@ -1,9 +1,12 @@
+using System;
+using System.Collections;
 using UnityEngine;
 namespace ScaredyCat
 {
     public sealed class FeedbackDirector : MonoBehaviour
     {
         public FeedbackSettings settings;
+        public GameFlow flow;
         public CatMotor cat;
         public AgroMeter agro;
         public ParticleSystem sparks;
@@ -14,35 +17,110 @@ namespace ScaredyCat
         AudioClip[] temporary;
         int voice;
         float shake;
+        Coroutine impactRoutine;
         void Awake()
         {
+            if (!flow) flow = FindFirstObjectByType<GameFlow>();
             temporary = new[] { Synth("Paw swish", .1f, 170, .8f), Synth("Bonk", .16f, 100, .25f),
                 Synth("Ceramic", .3f, 850, .85f), Synth("Landing", .1f, 65, .25f),
                 Synth("Calming", .15f, 650, .03f), Synth("At home", .9f, 330, .01f) };
             for (int i = 0; i < voices.Length; i++) { voices[i] = gameObject.AddComponent<AudioSource>(); voices[i].playOnAwake = false; }
         }
         void OnEnable() { if (cat) cat.Landed += Land; if (agro) agro.Rewarded += Reward; }
-        void OnDisable() { if (cat) cat.Landed -= Land; if (agro) agro.Rewarded -= Reward; }
+        void OnDisable()
+        {
+            if (cat) cat.Landed -= Land;
+            if (agro) agro.Rewarded -= Reward;
+            if (impactRoutine != null)
+            {
+                StopCoroutine(impactRoutine);
+                impactRoutine = null;
+                if (!flow || !flow.Paused) Time.timeScale = 1;
+            }
+        }
         void LateUpdate()
         {
-            shake = Mathf.MoveTowards(shake, 0, Time.deltaTime * 3);
+            shake = Mathf.MoveTowards(shake, 0, Time.unscaledDeltaTime * 4.5f);
             float intensity = shake * (settings ? settings.cameraMotion : .6f) * MotionMultiplier;
-            float t = Time.time * 42;
-            CameraOffset = new Vector3(Mathf.Sin(t), Mathf.Sin(t * 1.7f), 0) * intensity * .025f;
-            CameraRotation = Quaternion.Euler(Mathf.Sin(t * .8f) * intensity * 1.6f, 0, Mathf.Sin(t * 1.3f) * intensity);
+            float t = Time.unscaledTime * 42;
+            CameraOffset = new Vector3(Mathf.Sin(t), Mathf.Sin(t * 1.7f), 0) * intensity * .055f;
+            CameraRotation = Quaternion.Euler(Mathf.Sin(t * .8f) * intensity * 3.2f, 0, Mathf.Sin(t * 1.3f) * intensity * 1.4f);
         }
         public void Attack(HitContext hit, bool connected)
         {
             Play(connected ? (settings ? settings.impact : null) : (settings ? settings.swish : null), connected ? 1 : 0);
             if (!connected) return;
-            shake = Mathf.Max(shake, Mathf.Lerp(.25f, .8f, hit.Charge));
+            shake = Mathf.Max(shake, Mathf.Lerp(.45f, 1.15f, hit.Charge));
             Emit(hit.Point, Color.Lerp(new Color(1, .8f, .4f), Color.white, hit.Charge), 5);
+        }
+        public void SuccessfulHit(HitContext hit, Action resolveHit)
+        {
+            if (impactRoutine != null)
+            {
+                resolveHit?.Invoke();
+                Attack(hit, true);
+                return;
+            }
+            if (!settings || Time.timeScale <= 0 || (flow && flow.Paused))
+            {
+                resolveHit?.Invoke();
+                Attack(hit, true);
+                return;
+            }
+            impactRoutine = StartCoroutine(ImpactRoutine(hit, resolveHit));
+        }
+        IEnumerator ImpactRoutine(HitContext hit, Action resolveHit)
+        {
+            float originalScale = Time.timeScale;
+            if (settings.preImpactSlowDuration > 0)
+            {
+                Time.timeScale = Mathf.Min(originalScale, settings.preImpactTimeScale);
+                float elapsed = 0;
+                while (elapsed < settings.preImpactSlowDuration)
+                {
+                    if (flow && flow.Paused)
+                    {
+                        resolveHit?.Invoke();
+                        Attack(hit, true);
+                        impactRoutine = null;
+                        yield break;
+                    }
+                    elapsed += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+            }
+
+            resolveHit?.Invoke();
+            Attack(hit, true);
+            if (settings.impactStopDuration > 0)
+            {
+                Time.timeScale = Mathf.Min(originalScale, settings.impactStopTimeScale);
+                float elapsed = 0;
+                while (elapsed < settings.impactStopDuration)
+                {
+                    if (flow && flow.Paused)
+                    {
+                        impactRoutine = null;
+                        yield break;
+                    }
+                    elapsed += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+            }
+            if (!flow || !flow.Paused) Time.timeScale = originalScale;
+            impactRoutine = null;
         }
         public void Shatter(Vector3 point) { Play(settings ? settings.shatter : null, 2); Emit(point, new Color(1, .85f, .55f), 12); shake = Mathf.Max(shake, .5f); }
         public void MarkTerritory(Vector3 point)
         {
             Emit(point, new Color(.32f, 1f, .48f), 18);
             shake = Mathf.Max(shake, .2f);
+        }
+        public void ZoomieStart(Vector3 point)
+        {
+            Play(settings ? settings.swish : null, 0, .75f);
+            Emit(point + Vector3.up * .15f, new Color(.65f, .85f, 1f), 8);
+            shake = Mathf.Max(shake, .16f);
         }
         void Land(float speed) { Play(settings ? settings.landing : null, 3, Mathf.Clamp01(speed / 12)); shake = Mathf.Max(shake, Mathf.Clamp01(speed / 15) * .45f); }
         void Reward(MischiefEvent outcome) => Play(settings ? settings.reward : null, 4, .4f);
@@ -55,7 +133,7 @@ namespace ScaredyCat
         void Play(AudioClip clip, int fallback, float volume = 1)
         {
             var source = voices[voice++ % voices.Length];
-            source.pitch = Random.Range(.94f, 1.07f); source.PlayOneShot(clip ? clip : temporary[fallback], volume * (settings ? settings.volume : .65f));
+            source.pitch = UnityEngine.Random.Range(.94f, 1.07f); source.PlayOneShot(clip ? clip : temporary[fallback], volume * (settings ? settings.volume : .65f));
         }
         static AudioClip Synth(string name, float duration, float frequency, float noise)
         {

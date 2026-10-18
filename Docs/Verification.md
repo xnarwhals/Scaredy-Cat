@@ -16,6 +16,14 @@ Validated with Unity **6000.3.11f1**, using an isolated copy of this project so 
 
 ## October 2026 follow-up
 
+The latest gameplay edit adds a four-block Zoomies meter on the Apartment HUD, a Shift/left-bumper power dash with stronger attributed hits, Xbox mappings for movement, look, paw, Mark Territory, jump, pause, dialogue, and menu navigation, plus authored bathroom-door and PancakeTower broken roots. The pause title/body are now left to the scene instead of rewritten every frame. These edits have not yet had a Unity Play Mode or WebGL build pass.
+
+`MischiefProp` now assigns both `Default` and `Smashable` rendering layers to intact renderers at startup. The scene's 41 Smashable-only renderer overrides were changed from mask 256 to 257, so clearing the outline on a nonbreakable prop leaves a visible Default layer. The extra release impulse for kinematic props also respects Launch Multiplier. This follow-up has not had a Unity Play Mode pass.
+
+The Menace Meter now interpolates from red to green as its fill decreases, pulses on each reward, and flashes at 66, 33, and 0. Colors, pulse scale, and timings are editable on the Apartment `HudView`. This follow-up has not had a Unity Play Mode pass.
+
+Successful `MischiefProp` paw and Zoomie hits now receive a short pre-impact slowdown and near-freeze hit-stop, timed with unscaled time. Settings are in `Feedback.asset`. This follow-up has not had a Unity Play Mode pass.
+
 The apartment and Mechanics Lab scene HUD text was converted to TextMesh Pro. The apartment scene now has four serialized owner roam anchors, four paintings that become physical on paw contact, a Mark Territory screen prompt, and readable WorldUI labels. The authored timer text was moved above and within the existing `Timer` image. The owner sit and cat lap transforms remain editable under `Apartment Stage Content > Owner sitting on sofa`.
 
 The isolated Unity editor imported and saved both updated scenes without C# compile errors. This follow-up did not run the test suites or a visual Game-view pass; the earlier counts below are historical results from before these changes.

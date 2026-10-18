@@ -10,28 +10,32 @@ namespace ScaredyCat
         public readonly ControlGate Controls = new ControlGate();
         InputActionAsset instance;
         InputActionMap player, system;
-        InputAction move, look, jump, sprint, attack, interact, advance;
+        InputAction move, look, jump, dash, attack, interact, advance;
         public Vector2 Move => player != null && player.enabled ? move.ReadValue<Vector2>() : Vector2.zero;
         public Vector2 Look => player != null && player.enabled ? look.ReadValue<Vector2>() : Vector2.zero;
-        public bool Sprint => sprint != null && sprint.IsPressed();
-        public event Action Jumped, AttackPressed, AttackReleased, InteractStarted, InteractReleased, AdvancePressed, GameplayCancelled, PausePressed, SkipPressed, DebugPressed;
+        public bool LookIsGamepad => look?.activeControl?.device is Gamepad;
+        public bool LastInputWasGamepad { get; private set; }
+        public event Action Jumped, DashPressed, AttackPressed, AttackReleased, InteractStarted, InteractReleased, AdvancePressed, GameplayCancelled, PausePressed, SkipPressed, DebugPressed;
         void Awake()
         {
             instance = Instantiate(actions);
             player = instance.FindActionMap("Player", true); system = instance.FindActionMap("System", true);
             move = player.FindAction("Move", true); look = player.FindAction("Look", true);
-            jump = player.FindAction("Jump", true); sprint = player.FindAction("Sprint", true); attack = player.FindAction("Attack", true);
+            jump = player.FindAction("Jump", true); dash = player.FindAction("Dash", true); attack = player.FindAction("Attack", true);
             interact = player.FindAction("Interact", true);
             advance = system.AddAction("AdvanceDialogue", InputActionType.Button, "<Keyboard>/enter");
             advance.AddBinding("<Mouse>/leftButton");
-            jump.performed += _ => Jumped?.Invoke();
-            attack.started += _ => { if (!Controls.IsLocked) AttackPressed?.Invoke(); };
-            attack.canceled += _ => { if (!Controls.IsLocked && player.enabled) AttackReleased?.Invoke(); };
-            interact.started += _ => { if (!Controls.IsLocked) InteractStarted?.Invoke(); };
-            interact.canceled += _ => InteractReleased?.Invoke();
-            advance.performed += _ => AdvancePressed?.Invoke();
-            system.FindAction("Pause", true).performed += _ => PausePressed?.Invoke();
-            system.FindAction("Skip", true).performed += _ => SkipPressed?.Invoke();
+            advance.AddBinding("<Gamepad>/buttonSouth");
+            move.performed += RememberDevice; look.performed += RememberDevice;
+            dash.performed += context => { RememberDevice(context); if (!Controls.IsLocked) DashPressed?.Invoke(); };
+            jump.performed += context => { RememberDevice(context); Jumped?.Invoke(); };
+            attack.started += context => { RememberDevice(context); if (!Controls.IsLocked) AttackPressed?.Invoke(); };
+            attack.canceled += context => { RememberDevice(context); if (!Controls.IsLocked && player.enabled) AttackReleased?.Invoke(); };
+            interact.started += context => { RememberDevice(context); if (!Controls.IsLocked) InteractStarted?.Invoke(); };
+            interact.canceled += context => { RememberDevice(context); InteractReleased?.Invoke(); };
+            advance.performed += context => { RememberDevice(context); AdvancePressed?.Invoke(); };
+            system.FindAction("Pause", true).performed += context => { RememberDevice(context); PausePressed?.Invoke(); };
+            system.FindAction("Skip", true).performed += context => { RememberDevice(context); SkipPressed?.Invoke(); };
             system.FindAction("Debug", true).performed += _ => DebugPressed?.Invoke();
             Controls.Changed += UpdateGate;
         }
@@ -43,6 +47,7 @@ namespace ScaredyCat
             if (locked) { GameplayCancelled?.Invoke(); player.Disable(); } else player.Enable();
         }
         void OnApplicationFocus(bool focus) { if (!focus) GameplayCancelled?.Invoke(); }
+        void RememberDevice(InputAction.CallbackContext context) { LastInputWasGamepad = context.control.device is Gamepad; }
         void OnDestroy() { Controls.Changed -= UpdateGate; if (instance) Destroy(instance); }
     }
 }

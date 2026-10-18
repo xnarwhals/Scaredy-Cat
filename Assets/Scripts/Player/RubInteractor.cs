@@ -116,7 +116,8 @@ namespace ScaredyCat
             if (nearbyPrompt)
             {
                 nearbyPrompt.gameObject.SetActive(available);
-                if (available) nearbyPrompt.text = holding ? "MARKING TERRITORY" : "HOLD E  MARK TERRITORY";
+                if (available) nearbyPrompt.text = holding ? "MARKING TERRITORY" :
+                    (input && input.LastInputWasGamepad ? "HOLD X  MARK TERRITORY" : "HOLD E  MARK TERRITORY");
             }
             if (holdBar) holdBar.SetActive(available && holding);
         }

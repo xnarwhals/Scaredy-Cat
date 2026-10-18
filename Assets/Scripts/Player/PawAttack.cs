@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 namespace ScaredyCat
 {
     public enum PawState { Idle, Charging, Swing, Recovery }
@@ -9,6 +10,11 @@ namespace ScaredyCat
         public AttackSettings settings;
         public Transform aim, paw;
         public FeedbackDirector feedback;
+        [Header("Charge Haptics")]
+        [Range(0, 1)] public float chargeRumbleLow = .08f;
+        [Range(0, 1)] public float chargeRumbleHigh = .04f;
+        [Range(0, 1)] public float fullChargeRumbleLow = .5f;
+        [Range(0, 1)] public float fullChargeRumbleHigh = .35f;
         public PawState State { get; private set; }
         public float Charge => clock.Fraction(Time.timeAsDouble, settings ? settings.chargeDuration : .8f);
         public event Action<HitContext, bool> Struck;
@@ -18,6 +24,7 @@ namespace ScaredyCat
         float elapsed, strikeCharge, presentationPause;
         int attackId;
         bool queuedPress, queuedRelease;
+        Gamepad chargeGamepad;
         void Awake()
         {
             if (paw) { restPosition = paw.localPosition; restRotation = paw.localRotation; restScale = paw.localScale; paw.gameObject.SetActive(false); }
@@ -37,11 +44,13 @@ namespace ScaredyCat
             if (!settings || (input && input.Controls.IsLocked)) return;
             if (State == PawState.Recovery) { queuedPress = true; queuedRelease = false; return; }
             if (State != PawState.Idle) return;
+            chargeGamepad = input && input.LastInputWasGamepad ? Gamepad.current : null;
             clock.Press(Time.timeAsDouble); State = PawState.Charging;
             if (paw) paw.gameObject.SetActive(true);
         }
         public void Release()
         {
+            StopChargeRumble();
             if (input && input.Controls.IsLocked) { Cancel(); return; }
             if (queuedPress) { queuedRelease = true; return; }
             if (State != PawState.Charging || !clock.Release(Time.timeAsDouble, settings.chargeDuration, out strikeCharge)) return;
@@ -50,12 +59,25 @@ namespace ScaredyCat
             var hit = new HitContext(++attackId, gameObject, connected ? contact.point : aim.position + aim.forward * settings.reach,
                 (aim.forward + Vector3.up * .16f).normalized, strikeCharge,
                 Mathf.Lerp(settings.tapImpulse, settings.chargedImpulse, settings.chargeForce.Evaluate(strikeCharge)));
-            receiver?.ReceiveHit(hit);
-            if (feedback) { feedback.Attack(hit, connected); presentationPause = connected ? feedback.settings.impactPause : 0; }
+            bool smackableHit = connected && receiver is MischiefProp;
+            if (smackableHit && feedback)
+            {
+                feedback.SuccessfulHit(hit, () =>
+                {
+                    receiver.ReceiveHit(hit);
+                    presentationPause = feedback.settings ? feedback.settings.impactPause : 0;
+                });
+            }
+            else
+            {
+                receiver?.ReceiveHit(hit);
+                if (feedback) feedback.Attack(hit, connected);
+            }
             Struck?.Invoke(hit, connected);
         }
         public void Cancel()
         {
+            StopChargeRumble();
             clock.Cancel(); queuedPress = queuedRelease = false; State = PawState.Idle; elapsed = presentationPause = 0;
             if (paw) { paw.gameObject.SetActive(false); paw.localPosition = restPosition; paw.localRotation = restRotation; paw.localScale = restScale; }
         }
@@ -68,15 +90,18 @@ namespace ScaredyCat
         }
         void Update()
         {
-            if (!paw || !settings || State == PawState.Idle) return;
+            if (!settings || State == PawState.Idle) return;
             if (State == PawState.Charging)
             {
                 float charge = Charge;
+                UpdateChargeRumble(charge);
+                if (!paw) return;
                 paw.localPosition = restPosition + new Vector3(.035f, -.04f, -.1f) * charge;
                 paw.localRotation = restRotation * Quaternion.Euler(-25 * charge, 0, -18 * charge);
                 paw.localScale = Vector3.Scale(restScale, new Vector3(1 + charge * .08f, 1 - charge * .07f, 1));
                 return;
             }
+            if (!paw) return;
             if (presentationPause > 0) { presentationPause -= Time.deltaTime; return; }
             elapsed += Time.deltaTime;
             Vector3 extended = restPosition + new Vector3(-.24f, .09f, .23f);
@@ -100,6 +125,18 @@ namespace ScaredyCat
                     if (press) { Press(); if (release) Release(); }
                 }
             }
+        }
+        void UpdateChargeRumble(float charge)
+        {
+            if (chargeGamepad == null || !chargeGamepad.added) return;
+            float low = Mathf.Lerp(chargeRumbleLow, fullChargeRumbleLow, charge);
+            float high = Mathf.Lerp(chargeRumbleHigh, fullChargeRumbleHigh, charge);
+            chargeGamepad.SetMotorSpeeds(low, high);
+        }
+        void StopChargeRumble()
+        {
+            if (chargeGamepad != null && chargeGamepad.added) chargeGamepad.SetMotorSpeeds(0, 0);
+            chargeGamepad = null;
         }
     }
 }

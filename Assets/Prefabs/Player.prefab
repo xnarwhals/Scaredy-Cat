@@ -268,6 +268,13 @@ MonoBehaviour:
   groundMask:
     serializedVersion: 2
     m_Bits: 4294959871
+  zoomieBlocks: 4
+  dashSpeed: 13.5
+  dashDuration: 0.24
+  dashCooldown: 0.48
+  rechargeDelay: 0.7
+  rechargeBlocksPerSecond: 0.65
+  dashHitImpulse: 13
 --- !u!114 &7591303721777645816
 MonoBehaviour:
   m_ObjectHideFlags: 0

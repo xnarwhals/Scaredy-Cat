@@ -26,3 +26,4 @@ MonoBehaviour:
   stepHeight: 0.16
   mouseSensitivity: 0.085
   fieldOfView: 80
+  gamepadLookDegreesPerSecond: 170

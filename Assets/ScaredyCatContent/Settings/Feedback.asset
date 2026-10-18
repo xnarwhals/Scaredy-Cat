@@ -14,7 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: ScaredyCat.Runtime::ScaredyCat.FeedbackSettings
   cameraMotion: 0.6
   volume: 0.65
-  impactPause: 0.025
+  impactPause: 0.045
+  preImpactTimeScale: 0.2
+  preImpactSlowDuration: 0.12
+  impactStopTimeScale: 0.02
+  impactStopDuration: 0.08
   swish: {fileID: 0}
   impact: {fileID: 0}
   shatter: {fileID: 0}

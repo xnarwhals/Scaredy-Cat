@@ -1,9 +1,12 @@
+using System.Collections.Generic;
 using UnityEngine;
 namespace ScaredyCat
 {
     [RequireComponent(typeof(Rigidbody), typeof(ImpulseAttribution))]
     public sealed class MischiefProp : MonoBehaviour, ISwatReceiver
     {
+        const uint DefaultRenderingLayer = 1u;
+        const uint SmashableRenderingLayer = 1u << 8;
         public AgroMeter agro;
         public DebrisBudget debris;
         public FeedbackDirector feedback;
@@ -15,9 +18,12 @@ namespace ScaredyCat
         [Tooltip("Keep a wall-mounted prop in place until a paw hit releases it.")]
         public bool startKinematicUntilHit;
         public float breakCharge = .72f, collisionBreakSpeed = 2.6f;
+        [Min(0)] public float fragmentBurstImpulse = .12f;
         public bool Broken { get; private set; }
         Rigidbody body;
         Collider[] intactColliders;
+        Renderer[] intactRenderers;
+        bool[] initiallyVisible;
         Rigidbody[] fragments;
         ImpulseAttribution attribution;
         Vector3 initialPosition;
@@ -26,16 +32,28 @@ namespace ScaredyCat
         Quaternion[] fragmentRotations;
         bool knocked;
         bool initialKinematic;
+        bool smashableOutlineConsumed;
         void Awake()
         {
             body = GetComponent<Rigidbody>(); attribution = GetComponent<ImpulseAttribution>();
             initialKinematic = body.isKinematic || startKinematicUntilHit;
             if (startKinematicUntilHit) body.isKinematic = true;
             if (objectMass > 0) body.mass = Mathf.Max(.01f, objectMass);
-            if (breakable && intactVisual)
-                foreach (var renderer in intactVisual.GetComponentsInChildren<Renderer>(true))
-                    renderer.renderingLayerMask |= 1u << 8;
-            intactColliders = GetComponents<Collider>();
+            var visible = new List<Renderer>();
+            var visualRoot = intactVisual ? intactVisual : gameObject;
+            foreach (var renderer in visualRoot.GetComponentsInChildren<Renderer>(true))
+                if (!brokenRoot || !renderer.transform.IsChildOf(brokenRoot.transform)) visible.Add(renderer);
+            intactRenderers = visible.ToArray();
+            initiallyVisible = new bool[intactRenderers.Length];
+            for (int i = 0; i < intactRenderers.Length; i++)
+            {
+                initiallyVisible[i] = intactRenderers[i].enabled;
+                intactRenderers[i].renderingLayerMask |= DefaultRenderingLayer | SmashableRenderingLayer;
+            }
+            var solid = new List<Collider>();
+            foreach (var collider in GetComponentsInChildren<Collider>(true))
+                if (!brokenRoot || !collider.transform.IsChildOf(brokenRoot.transform)) solid.Add(collider);
+            intactColliders = solid.ToArray();
             initialPosition = transform.position; initialRotation = transform.rotation;
             fragments = brokenRoot ? brokenRoot.GetComponentsInChildren<Rigidbody>(true) : new Rigidbody[0];
             fragmentPositions = new Vector3[fragments.Length]; fragmentRotations = new Quaternion[fragments.Length];
@@ -45,24 +63,27 @@ namespace ScaredyCat
         }
         void Start()
         {
-            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            body.collisionDetectionMode = body.isKinematic ? CollisionDetectionMode.ContinuousSpeculative : CollisionDetectionMode.ContinuousDynamic;
         }
         public void ReceiveHit(HitContext hit)
         {
             if (Broken) return;
             attribution.Mark(hit.Instigator, Time.timeAsDouble + (agro && agro.settings ? agro.settings.attributionSeconds : 6));
-            if (!breakable)
+            float appliedImpulse = hit.Impulse * launchMultiplier;
+            if (!breakable && !smashableOutlineConsumed)
             {
-                foreach (var renderer in GetComponentsInChildren<Renderer>(true))
-                    renderer.renderingLayerMask &= ~(1u << 8);
+                smashableOutlineConsumed = true;
+                foreach (var renderer in intactRenderers)
+                    if (renderer) renderer.renderingLayerMask &= ~SmashableRenderingLayer;
             }
             if (startKinematicUntilHit && body.isKinematic)
             {
                 body.isKinematic = false;
-                body.AddForce(Vector3.up * hit.Impulse * .2f, ForceMode.Impulse);
-                body.AddTorque(Vector3.Cross(hit.Direction, Vector3.up).normalized * hit.Impulse * .2f, ForceMode.Impulse);
+                body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                body.AddForce(Vector3.up * appliedImpulse * .2f, ForceMode.Impulse);
+                body.AddTorque(Vector3.Cross(hit.Direction, Vector3.up).normalized * appliedImpulse * .2f, ForceMode.Impulse);
             }
-            body.AddForceAtPosition(hit.Direction * hit.Impulse * launchMultiplier, hit.Point, ForceMode.Impulse);
+            if (!body.isKinematic) body.AddForceAtPosition(hit.Direction * appliedImpulse, hit.Point, ForceMode.Impulse);
             if (!knocked && hit.Instigator && agro)
             { knocked = true; agro.Report(new MischiefEvent(GetInstanceID(), MischiefKind.Knock, true)); }
             if (breakable && hit.Charge >= breakCharge) Break(hit.Point, hit.Direction * hit.Impulse);
@@ -92,8 +113,9 @@ namespace ScaredyCat
             Broken = true;
             var velocity = body.linearVelocity; var angularVelocity = body.angularVelocity;
             body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero; body.isKinematic = true;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
             foreach (var collider in intactColliders) collider.enabled = false;
-            if (intactVisual) intactVisual.SetActive(false);
+            SetIntactVisible(false);
             brokenRoot.SetActive(true);
             for (int i = 0; i < fragments.Length; i++)
             {
@@ -102,8 +124,15 @@ namespace ScaredyCat
                 fragment.linearVelocity = velocity + Vector3.Cross(angularVelocity, fragment.worldCenterOfMass - body.worldCenterOfMass);
                 fragment.angularVelocity = angularVelocity;
                 fragment.GetComponent<ImpulseAttribution>()?.CopyFrom(attribution);
-                Vector3 outward = (fragment.worldCenterOfMass - point).normalized;
-                fragment.AddForce(impulse / fragments.Length + outward * .12f, ForceMode.Impulse);
+                Vector3 outward = fragment.worldCenterOfMass - transform.position;
+                outward.y = 0;
+                if (outward.sqrMagnitude < .01f)
+                {
+                    float angle = 2 * Mathf.PI * i / fragments.Length;
+                    outward = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+                }
+                outward = (outward.normalized + Vector3.up * .4f).normalized;
+                fragment.AddForce(impulse / fragments.Length + outward * fragmentBurstImpulse, ForceMode.Impulse);
                 if (debris) debris.Register(fragment);
             }
             if (agro) agro.Report(new MischiefEvent(GetInstanceID(), MischiefKind.Break, attribution.Active));
@@ -123,10 +152,20 @@ namespace ScaredyCat
             body.position = initialPosition; body.rotation = initialRotation;
             if (!body.isKinematic) body.linearVelocity = body.angularVelocity = Vector3.zero;
             body.isKinematic = initialKinematic;
+            body.collisionDetectionMode = body.isKinematic ? CollisionDetectionMode.ContinuousSpeculative : CollisionDetectionMode.ContinuousDynamic;
             foreach (var collider in intactColliders) collider.enabled = true;
-            if (intactVisual) intactVisual.SetActive(true);
+            SetIntactVisible(true);
             attribution.Clear(); Broken = false;
             // Reward ledger intentionally survives a station reset; restart the scene for a fresh run.
+        }
+        void SetIntactVisible(bool show)
+        {
+            if (!intactVisual) return;
+            if (!brokenRoot || !brokenRoot.transform.IsChildOf(intactVisual.transform))
+                intactVisual.SetActive(show);
+            else
+                for (int i = 0; i < intactRenderers.Length; i++)
+                    intactRenderers[i].enabled = show && initiallyVisible[i];
         }
     }
 }

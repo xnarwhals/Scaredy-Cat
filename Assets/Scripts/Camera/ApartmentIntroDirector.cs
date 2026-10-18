@@ -17,12 +17,18 @@ namespace ScaredyCat
         public Transform bedroomDoor;
         public GameObject ownerCard, catCard;
         [Min(1)] public int ownerKnotIndex = 3;
-        [Min(0.1f)] public float ownerApproachDuration = 2.8f;
-        [Min(0.1f)] public float ownerHoldDuration = 2.8f;
+        [Min(0.1f)] public float ownerApproachDuration = 4.5f;
+        [Min(0.1f)] public float ownerHoldDuration = 6.5f;
         [Min(0.1f)] public float catApproachDuration = 4.6f;
         [Min(0.1f)] public float catHoldDuration = 2.4f;
         [Range(45, 120)] public float doorOpenAngle = 100;
         [Min(0.1f)] public float doorOpenDuration = 1.1f;
+
+        [Header("Intro narrative captions")]
+        [TextArea] public string approachOwnerCaption = "Someone is very committed to this routine.";
+        [TextArea] public string ownerHoldCaption = "Meet the human. The dancing is apparently normal.";
+        [TextArea] public string bedroomRevealCaption = "And somewhere nearby, a cat is settling in.";
+        [TextArea] public string catHoldCaption = "Cheeto. New home. No plans to behave.";
 
         Quaternion doorClosedRotation;
         Coroutine doorAnimation;
@@ -59,15 +65,15 @@ namespace ScaredyCat
             var ownerLook = owner.transform;
 
             var approachOwner = SplineShot("Approach owner", 0, pauseAt, ownerApproachDuration,
-                ownerLook, Vector3.up * 1.2f, "Someone is very committed to this routine.");
+                ownerLook, Vector3.up * 1.2f, approachOwnerCaption);
             approachOwner.onEnter.AddListener(BeginOwnerDance);
 
             var ownerHold = SplineShot("Owner introduction", pauseAt, pauseAt, ownerHoldDuration,
-                ownerLook, Vector3.up * 1.2f, "Meet the human. The dancing is apparently normal.");
+                ownerLook, Vector3.up * 1.2f, ownerHoldCaption);
             ownerHold.onEnter.AddListener(() => { if (ownerCard) ownerCard.SetActive(true); });
 
             var revealBedroom = SplineShot("Bedroom door opens", pauseAt, 1, catApproachDuration,
-                cat.head, Vector3.up * .08f, "And somewhere nearby, a cat is settling in.");
+                cat.head, Vector3.up * .08f, bedroomRevealCaption);
             revealBedroom.onEnter.AddListener(() =>
             {
                 if (ownerCard) ownerCard.SetActive(false);
@@ -75,7 +81,7 @@ namespace ScaredyCat
             });
 
             var catHold = SplineShot("Cheeto under the spotlight", 1, 1, catHoldDuration,
-                cat.head, Vector3.up * .08f, "Cheeto. New home. No plans to behave.");
+                cat.head, Vector3.up * .08f, catHoldCaption);
             catHold.onEnter.AddListener(() => { if (catCard) catCard.SetActive(true); });
 
             sequence.shots = new[] { approachOwner, ownerHold, revealBedroom, catHold };
