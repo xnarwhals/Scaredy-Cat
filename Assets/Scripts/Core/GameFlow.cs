@@ -18,6 +18,9 @@ namespace ScaredyCat
         public Transform acceptanceCat, acceptanceOwner;
         [Range(.2f, 1f)] public float endingCatScaleMultiplier = .62f;
         public FeedbackDirector feedback;
+        [Header("Menace stage soundtrack")]
+        public AudioSource musicSource;
+        public AudioClip menaceMusicPt1, menaceMusicPt2, menaceMusicPt3;
         public HudView hud;
         public StagePresentation presentation;
         public bool mechanicsLab;
@@ -36,6 +39,7 @@ namespace ScaredyCat
         {
             input.PausePressed += TogglePause; input.DebugPressed += ToggleDebug;
             cutscenes.Finished += SequenceFinished; agro.Ledger.Changed += MeterChanged;
+            UpdateSoundtrack(agro.Ledger.Value);
             if (mechanicsLab || !intro) EnterPlaying(); else cutscenes.Play(intro);
             UpdateCursor();
         }
@@ -44,7 +48,9 @@ namespace ScaredyCat
         void MeterChanged(float value, float decrease)
         {
             if (State != GameState.Playing) return;
-            int reached = value <= 0 ? 3 : value <= 33 ? 2 : value <= 66 ? 1 : 0;
+            float maximum = agro && agro.Ledger != null ? agro.Ledger.Maximum : 100f;
+            UpdateSoundtrack(value);
+            int reached = value <= 0 ? 3 : value <= maximum / 3f ? 2 : value <= maximum * (2f / 3f) ? 1 : 0;
             for (int stage = highestStage + 1; stage <= reached; stage++) milestones.Enqueue(stage);
             if (reached > highestStage)
             {
@@ -52,6 +58,18 @@ namespace ScaredyCat
                 if (reached == 3) timerRunning = false;
             }
             if (!processingStages && milestones.Count > 0) StartCoroutine(ProcessMilestones());
+        }
+        void UpdateSoundtrack(float menace)
+        {
+            if (!musicSource || !agro || agro.Ledger == null) return;
+            float ratio = menace / agro.Ledger.Maximum;
+            AudioClip next = ratio <= 1f / 3f ? menaceMusicPt1 :
+                ratio <= 2f / 3f ? menaceMusicPt2 : menaceMusicPt3;
+            if (!next || (musicSource.clip == next && musicSource.isPlaying)) return;
+            musicSource.Stop();
+            musicSource.clip = next;
+            musicSource.loop = true;
+            musicSource.Play();
         }
         IEnumerator ProcessMilestones()
         {

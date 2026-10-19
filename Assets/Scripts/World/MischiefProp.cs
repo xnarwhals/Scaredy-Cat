@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 namespace ScaredyCat
 {
@@ -20,6 +21,7 @@ namespace ScaredyCat
         public float breakCharge = .72f, collisionBreakSpeed = 2.6f;
         [Min(0)] public float fragmentBurstImpulse = .12f;
         public bool Broken { get; private set; }
+        public event Action<MischiefProp> PawSmacked;
         Rigidbody body;
         Collider[] intactColliders;
         Renderer[] intactRenderers;
@@ -68,6 +70,7 @@ namespace ScaredyCat
         public void ReceiveHit(HitContext hit)
         {
             if (Broken) return;
+            PawSmacked?.Invoke(this);
             attribution.Mark(hit.Instigator, Time.timeAsDouble + (agro && agro.settings ? agro.settings.attributionSeconds : 6));
             float appliedImpulse = hit.Impulse * launchMultiplier;
             if (!breakable && !smashableOutlineConsumed)

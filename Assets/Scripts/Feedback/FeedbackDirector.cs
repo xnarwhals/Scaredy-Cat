@@ -26,10 +26,10 @@ namespace ScaredyCat
                 Synth("Calming", .15f, 650, .03f), Synth("At home", .9f, 330, .01f) };
             for (int i = 0; i < voices.Length; i++) { voices[i] = gameObject.AddComponent<AudioSource>(); voices[i].playOnAwake = false; }
         }
-        void OnEnable() { if (cat) cat.Landed += Land; if (agro) agro.Rewarded += Reward; }
+        void OnEnable() { if (cat) { cat.Landed += Land; cat.Stepped += Footstep; } if (agro) agro.Rewarded += Reward; }
         void OnDisable()
         {
-            if (cat) cat.Landed -= Land;
+            if (cat) { cat.Landed -= Land; cat.Stepped -= Footstep; }
             if (agro) agro.Rewarded -= Reward;
             if (impactRoutine != null)
             {
@@ -110,7 +110,12 @@ namespace ScaredyCat
             if (!flow || !flow.Paused) Time.timeScale = originalScale;
             impactRoutine = null;
         }
-        public void Shatter(Vector3 point) { Play(settings ? settings.shatter : null, 2); Emit(point, new Color(1, .85f, .55f), 12); shake = Mathf.Max(shake, .5f); }
+        public void Shatter(Vector3 point)
+        {
+            PlayVariation(settings ? settings.shatterVariations : null, settings ? settings.shatter : null, 2);
+            Emit(point, new Color(1, .85f, .55f), 12); shake = Mathf.Max(shake, .5f);
+        }
+        public void OwnerRagdoll() => PlayVariation(settings ? settings.ownerRagdollVariations : null, null, 1);
         public void MarkTerritory(Vector3 point)
         {
             Emit(point, new Color(.32f, 1f, .48f), 18);
@@ -122,8 +127,10 @@ namespace ScaredyCat
             Emit(point + Vector3.up * .15f, new Color(.65f, .85f, 1f), 8);
             shake = Mathf.Max(shake, .16f);
         }
-        void Land(float speed) { Play(settings ? settings.landing : null, 3, Mathf.Clamp01(speed / 12)); shake = Mathf.Max(shake, Mathf.Clamp01(speed / 15) * .45f); }
-        void Reward(MischiefEvent outcome) => Play(settings ? settings.reward : null, 4, .4f);
+        void Land(float speed) { PlayVariation(settings ? settings.landingVariations : null, settings ? settings.landing : null, 3, Mathf.Clamp01(speed / 12)); shake = Mathf.Max(shake, Mathf.Clamp01(speed / 15) * .45f); }
+        void Footstep() => PlayVariation(settings ? settings.footstepVariations : null, null, 3, .55f);
+        public void UIClick() { if (settings && settings.uiClick) Play(settings.uiClick, 0, .7f); }
+        void Reward(MischiefEvent outcome) => PlayVariation(settings ? settings.rewardVariations : null, settings ? settings.reward : null, 4, .4f);
         public void Accept() => Play(settings ? settings.acceptance : null, 5);
         void Emit(Vector3 point, Color color, int count)
         {
@@ -134,6 +141,20 @@ namespace ScaredyCat
         {
             var source = voices[voice++ % voices.Length];
             source.pitch = UnityEngine.Random.Range(.94f, 1.07f); source.PlayOneShot(clip ? clip : temporary[fallback], volume * (settings ? settings.volume : .65f));
+        }
+        void PlayVariation(AudioClip[] clips, AudioClip fallbackClip, int fallbackIndex, float volume = 1)
+        {
+            AudioClip clip = null;
+            if (clips != null && clips.Length > 0)
+            {
+                int first = UnityEngine.Random.Range(0, clips.Length);
+                for (int i = 0; i < clips.Length; i++)
+                {
+                    var candidate = clips[(first + i) % clips.Length];
+                    if (candidate) { clip = candidate; break; }
+                }
+            }
+            Play(clip ? clip : fallbackClip, fallbackIndex, volume);
         }
         static AudioClip Synth(string name, float duration, float frequency, float noise)
         {

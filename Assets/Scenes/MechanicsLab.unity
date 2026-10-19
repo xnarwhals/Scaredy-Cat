@@ -255,6 +255,8 @@ GameObject:
   - component: {fileID: 19862555}
   - component: {fileID: 19862554}
   - component: {fileID: 19862553}
+  - component: {fileID: 19862565}
+  - component: {fileID: 19862566}
   m_Layer: 0
   m_Name: Scaredy Cat Systems
   m_TagString: Untagged
@@ -319,6 +321,10 @@ MonoBehaviour:
   acceptanceCat: {fileID: 926256966}
   acceptanceOwner: {fileID: 1224603987}
   feedback: {fileID: 19862556}
+  musicSource: {fileID: 19862566}
+  menaceMusicPt1: {fileID: 8300000, guid: 5a6f15fc1bd064c9fa85a160d1c8c63d, type: 3}
+  menaceMusicPt2: {fileID: 8300000, guid: f9536751b8b954bc8b456741f643e2a8, type: 3}
+  menaceMusicPt3: {fileID: 8300000, guid: bf89ad91f89f74d06a6b65d4e99514ad, type: 3}
   hud: {fileID: 1286624184}
   presentation: {fileID: 0}
   mechanicsLab: 1
@@ -337,6 +343,11 @@ MonoBehaviour:
   input: {fileID: 1523231080}
   cat: {fileID: 1523231078}
   director: {fileID: 1523231077}
+  flow: {fileID: 19862554}
+  dialogueSource: {fileID: 19862565}
+  ownerTalking: {fileID: 8300000, guid: 6690049fe323f4e24b53ca517df48877, type: 3}
+  charactersPerSecond: 34
+  talkingVolume: 0.35
 --- !u!114 &19862556
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12108,6 +12119,60 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 231608402815046488, guid: 3f7d4321d5f5c4bd6b7b17effb9a5419, type: 3}
   m_PrefabInstance: {fileID: 2146603126}
   m_PrefabAsset: {fileID: 0}
+--- !u!82 &19862565
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 19862552}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: 6690049fe323f4e24b53ca517df48877, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 0.35
+  m_Pitch: 1
+  Loop: 1
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+--- !u!82 &19862566
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 19862552}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: bf89ad91f89f74d06a6b65d4e99514ad, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 0.55
+  m_Pitch: 1
+  Loop: 1
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

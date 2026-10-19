@@ -20,8 +20,28 @@ MonoBehaviour:
   impactStopTimeScale: 0.02
   impactStopDuration: 0.08
   swish: {fileID: 0}
-  impact: {fileID: 0}
-  shatter: {fileID: 0}
-  landing: {fileID: 0}
-  reward: {fileID: 0}
-  acceptance: {fileID: 0}
+  impact: {fileID: 8300000, guid: 41aa1d3351bf1427f875137a2315e19e, type: 3}
+  shatter: {fileID: 8300000, guid: f3c1bb2a1498743ef98dcfbeb7eb010a, type: 3}
+  landing: {fileID: 8300000, guid: c0c3d309adf23490ca65805e636a31f7, type: 3}
+  reward: {fileID: 8300000, guid: 6c2069fa2ad174129b18965ceae2fd90, type: 3}
+  acceptance: {fileID: 8300000, guid: 711c4f68133f64ff1bd27e7b381525b9, type: 3}
+  shatterVariations:
+  - {fileID: 8300000, guid: f3c1bb2a1498743ef98dcfbeb7eb010a, type: 3}
+  - {fileID: 8300000, guid: c2f8ce9e87b46460a9f553f1fbbe0759, type: 3}
+  - {fileID: 8300000, guid: 7fa2b6f34250f4e92975a2ef7c02a016, type: 3}
+  - {fileID: 8300000, guid: 00b386b44f5e24fa9b373a56f79e12a5, type: 3}
+  landingVariations: []
+  rewardVariations:
+  - {fileID: 8300000, guid: 6c2069fa2ad174129b18965ceae2fd90, type: 3}
+  - {fileID: 8300000, guid: 711c4f68133f64ff1bd27e7b381525b9, type: 3}
+  ownerRagdollVariations:
+  - {fileID: 8300000, guid: 312868cbd417e45099a4f98bfb7fa348, type: 3}
+  - {fileID: 8300000, guid: 892dcc2bd5d834f64b273d40bd00a1b3, type: 3}
+  footstepVariations:
+  - {fileID: 8300000, guid: ef285ad5f83004d1e966589d12f3861b, type: 3}
+  - {fileID: 8300000, guid: 897db3447b2554b6682e714e5b3059d0, type: 3}
+  - {fileID: 8300000, guid: 285f5150a54104998b9660e0dfc3ff61, type: 3}
+  - {fileID: 8300000, guid: 0ce93df79ddba400eaa3b3de0de3abd8, type: 3}
+  - {fileID: 8300000, guid: 04a6f1823d1db40188cb75e173519379, type: 3}
+  - {fileID: 8300000, guid: 721d7ba87a41242e98c64941fb2b3297, type: 3}
+  uiClick: {fileID: 8300000, guid: 06a02c4c127d6410aababf2d432bb591, type: 3}

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Haptics;
 namespace ScaredyCat
 {
     public enum PawState { Idle, Charging, Swing, Recovery }
@@ -24,7 +25,8 @@ namespace ScaredyCat
         float elapsed, strikeCharge, presentationPause;
         int attackId;
         bool queuedPress, queuedRelease;
-        Gamepad chargeGamepad;
+        InputDevice chargeDevice;
+        IDualMotorRumble chargeRumble;
         void Awake()
         {
             if (paw) { restPosition = paw.localPosition; restRotation = paw.localRotation; restScale = paw.localScale; paw.gameObject.SetActive(false); }
@@ -44,7 +46,8 @@ namespace ScaredyCat
             if (!settings || (input && input.Controls.IsLocked)) return;
             if (State == PawState.Recovery) { queuedPress = true; queuedRelease = false; return; }
             if (State != PawState.Idle) return;
-            chargeGamepad = input && input.LastInputWasGamepad ? Gamepad.current : null;
+            chargeDevice = input ? input.LastInputDevice : null;
+            chargeRumble = chargeDevice as IDualMotorRumble;
             clock.Press(Time.timeAsDouble); State = PawState.Charging;
             if (paw) paw.gameObject.SetActive(true);
         }
@@ -128,15 +131,16 @@ namespace ScaredyCat
         }
         void UpdateChargeRumble(float charge)
         {
-            if (chargeGamepad == null || !chargeGamepad.added) return;
+            if (chargeDevice == null || !chargeDevice.added || chargeRumble == null) return;
             float low = Mathf.Lerp(chargeRumbleLow, fullChargeRumbleLow, charge);
             float high = Mathf.Lerp(chargeRumbleHigh, fullChargeRumbleHigh, charge);
-            chargeGamepad.SetMotorSpeeds(low, high);
+            chargeRumble.SetMotorSpeeds(low, high);
         }
         void StopChargeRumble()
         {
-            if (chargeGamepad != null && chargeGamepad.added) chargeGamepad.SetMotorSpeeds(0, 0);
-            chargeGamepad = null;
+            if (chargeDevice != null && chargeDevice.added && chargeRumble != null) chargeRumble.SetMotorSpeeds(0, 0);
+            chargeDevice = null;
+            chargeRumble = null;
         }
     }
 }

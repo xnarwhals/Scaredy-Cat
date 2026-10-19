@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using TMPro;
 namespace ScaredyCat
 {
@@ -31,6 +32,8 @@ namespace ScaredyCat
         float previousAgro;
         float pulseRemaining, flashRemaining;
         Vector3 agroPulseBaseScale = Vector3.one;
+        Button[] sceneButtons;
+        UnityAction uiClickAction;
         void Start()
         {
             displayedAgro = agro.Ledger.Value;
@@ -41,16 +44,27 @@ namespace ScaredyCat
             resume.onClick.AddListener(flow.TogglePause); replay.onClick.AddListener(flow.Restart);
             sensitivity.onValueChanged.AddListener(value => flow.cat.SensitivityMultiplier = value);
             motion.onValueChanged.AddListener(value => flow.feedback.MotionMultiplier = value);
+            uiClickAction = PlayUIClick;
+            sceneButtons = FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var button in sceneButtons)
+                if (button) button.onClick.AddListener(uiClickAction);
         }
         void OnDestroy()
         {
             if (agro && agro.Ledger != null) agro.Ledger.Changed -= MenaceChanged;
+            if (sceneButtons != null)
+                foreach (var button in sceneButtons)
+                    if (button && uiClickAction != null) button.onClick.RemoveListener(uiClickAction);
         }
+        void PlayUIClick() { if (flow && flow.feedback) flow.feedback.UIClick(); }
         void MenaceChanged(float value, float decrease)
         {
             if (decrease <= 0) return;
-            if ((previousAgro > 66 && value <= 66) ||
-                (previousAgro > 33 && value <= 33) ||
+            float maximum = agro && agro.Ledger != null ? agro.Ledger.Maximum : 100f;
+            float stageOneThreshold = maximum * (2f / 3f);
+            float stageTwoThreshold = maximum / 3f;
+            if ((previousAgro > stageOneThreshold && value <= stageOneThreshold) ||
+                (previousAgro > stageTwoThreshold && value <= stageTwoThreshold) ||
                 (previousAgro > 0 && value <= 0))
                 flashRemaining = menaceFlashDuration;
             pulseRemaining = menacePulseDuration;
@@ -80,8 +94,10 @@ namespace ScaredyCat
                         zoomieSegments[i].color = cat.Dashing ? new Color(.82f, .97f, 1f) : new Color(.45f, .85f, 1f);
                     }
             caption.text = cutscenes.Caption;
+            caption.maxVisibleCharacters = cutscenes.IsPlaying ? cutscenes.VisibleCharacterCount : int.MaxValue;
             if (introCaptionPanel)
-                introCaptionPanel.SetActive(flow.State == GameState.Intro && cutscenes.IsPlaying && !string.IsNullOrWhiteSpace(cutscenes.Caption));
+                introCaptionPanel.SetActive(flow.State == GameState.Intro && cutscenes.IsPlaying &&
+                    !string.IsNullOrWhiteSpace(cutscenes.Caption));
             bool completed = flow.State == GameState.Complete;
             menu.SetActive(flow.Paused || (completed && (!flow.presentation || !flow.presentation.victoryScreen)));
             if (menu.activeSelf != menuWasActive)

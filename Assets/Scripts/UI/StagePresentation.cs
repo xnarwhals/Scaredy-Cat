@@ -9,12 +9,18 @@ namespace ScaredyCat
     {
         public GameFlow flow;
         public CutsceneManager cutscenes;
+        public CutsceneSequence ownerDialogueSequence;
         public ParticleSystem purpleMist;
         public Image vignette;
         public TMP_Text timer, dialogue, finalTime;
         public GameObject dialoguePanel, victoryScreen;
         public Button replay;
         public float initialVignette = .24f;
+        [Header("Speedrun rank cutoffs (maximum clear time in seconds)")]
+        [Min(0)] public float sRankTime = 40f;
+        [Min(0)] public float aRankTime = 50f;
+        [Min(0)] public float bRankTime = 70f;
+        [Min(0)] public float cRankTime = 90f;
         float baseEmission, desiredVignette;
         void Awake()
         {
@@ -37,9 +43,21 @@ namespace ScaredyCat
         }
         public void ShowVictory()
         {
-            if (finalTime && flow) finalTime.text = "FINAL TIME  " + FormatTime(flow.ElapsedTime);
+            if (finalTime && flow)
+            {
+                float clearTime = flow.ElapsedTime;
+                finalTime.text = $"FINAL TIME  {FormatTime(clearTime)}    RANK  {GetRank(clearTime)}";
+            }
             if (victoryScreen) victoryScreen.SetActive(true);
             if (replay && EventSystem.current) EventSystem.current.SetSelectedGameObject(replay.gameObject);
+        }
+        string GetRank(float seconds)
+        {
+            if (seconds <= sRankTime) return "S";
+            if (seconds <= aRankTime) return "A";
+            if (seconds <= bRankTime) return "B";
+            if (seconds <= cRankTime) return "C";
+            return "D";
         }
         static string FormatTime(float seconds)
         {
@@ -58,9 +76,14 @@ namespace ScaredyCat
                 color.a = Mathf.MoveTowards(color.a, desiredVignette, Time.unscaledDeltaTime * .12f);
                 vignette.color = color;
             }
-            bool showing = flow && flow.StageDialogueActive && cutscenes && cutscenes.IsPlaying;
+            bool showing = flow && cutscenes && cutscenes.IsPlaying &&
+                (flow.StageDialogueActive || cutscenes.Active == ownerDialogueSequence);
             if (dialoguePanel) dialoguePanel.SetActive(showing);
-            if (dialogue && showing) dialogue.text = cutscenes.Caption;
+            if (dialogue)
+            {
+                dialogue.text = showing ? cutscenes.Caption : string.Empty;
+                dialogue.maxVisibleCharacters = showing ? cutscenes.VisibleCharacterCount : int.MaxValue;
+            }
         }
     }
 }

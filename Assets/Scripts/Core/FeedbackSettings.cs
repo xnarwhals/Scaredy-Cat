@@ -12,5 +12,7 @@ namespace ScaredyCat
         [Range(.01f, 1f)] public float impactStopTimeScale = .02f;
         [Min(0)] public float impactStopDuration = .08f;
         public AudioClip swish, impact, shatter, landing, reward, acceptance;
+        public AudioClip uiClick;
+        public AudioClip[] shatterVariations, landingVariations, rewardVariations, ownerRagdollVariations, footstepVariations;
     }
 }

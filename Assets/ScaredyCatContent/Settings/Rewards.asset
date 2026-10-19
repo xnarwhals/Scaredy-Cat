@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9067e92446644418988ef71be8bee08e, type: 3}
   m_Name: Rewards
   m_EditorClassIdentifier: ScaredyCat.Runtime::ScaredyCat.RewardSettings
-  initialAgro: 200
+  initialAgro: 250
   knockReward: 3
   breakReward: 10
   ownerReward: 12

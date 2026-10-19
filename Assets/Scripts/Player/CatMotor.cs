@@ -14,6 +14,7 @@ namespace ScaredyCat
         public Rigidbody Body { get; private set; }
         public Quaternion ViewRotation => Quaternion.Euler(pitch, yaw, 0);
         public event Action<float> Landed;
+        public event Action Stepped;
         public float SensitivityMultiplier { get; set; } = 1;
         [Header("Zoomies")]
         [Min(1)] public int zoomieBlocks = 4;
@@ -33,6 +34,7 @@ namespace ScaredyCat
         int dashHitId;
         readonly HashSet<Component> dashHits = new HashSet<Component>();
         float yaw, pitch, groundedAt = -100, jumpAt = -100, jumpedAt = -100, previousVertical;
+        float footstepRemaining;
         void Awake()
         {
             Body = GetComponent<Rigidbody>();
@@ -114,6 +116,17 @@ namespace ScaredyCat
             velocity.y -= settings.gravity * (velocity.y < 0 ? settings.fallMultiplier : 1) * Time.fixedDeltaTime;
             Body.linearVelocity = velocity;
             Body.MoveRotation(Quaternion.Euler(0, yaw, 0));
+            if (Grounded && direction.sqrMagnitude > .1f && !Dashing)
+            {
+                footstepRemaining -= Time.fixedDeltaTime;
+                if (footstepRemaining <= 0)
+                {
+                    Stepped?.Invoke();
+                    float pace = Mathf.Max(.65f, planar.magnitude / Mathf.Max(.01f, settings.speed));
+                    footstepRemaining = Mathf.Clamp(.36f / pace, .22f, .46f);
+                }
+            }
+            else footstepRemaining = 0;
             if (Grounded && direction.sqrMagnitude > .1f) AssistStep(direction.normalized);
             previousVertical = velocity.y;
         }

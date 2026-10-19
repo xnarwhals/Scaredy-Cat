@@ -306,6 +306,10 @@ MonoBehaviour:
   aim: {fileID: 1898504810721135989}
   paw: {fileID: 6321613693242133745}
   feedback: {fileID: 0}
+  chargeRumbleLow: 0.08
+  chargeRumbleHigh: 0.04
+  fullChargeRumbleLow: 0.5
+  fullChargeRumbleHigh: 0.35
 --- !u!1 &4622065596961545547
 GameObject:
   m_ObjectHideFlags: 0

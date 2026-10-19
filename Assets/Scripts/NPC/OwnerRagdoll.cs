@@ -43,6 +43,7 @@ namespace ScaredyCat
                 agent.enabled = false; animator.enabled = false; standingCollider.enabled = false;
                 SetPhysical(true); State = OwnerState.Ragdoll; downAt = Time.time;
                 ++cycle;
+                if (feedback) feedback.OwnerRagdoll();
                 if (agro && hit.Instigator)
                 {
                     int room = 0;
